@@ -63,27 +63,57 @@ $env:OPENAI_MODEL="gpt-4o"
 openclaude
 ```
 
-### Fastest local Ollama setup
+### Automatic Model Switching (Experimental)
 
-macOS / Linux:
+OpenClaude can automatically switch between different Ollama models based on the type of task you're asking for. This feature uses intelligent task classification and a strategy configuration file.
 
-```bash
-export CLAUDE_CODE_USE_OPENAI=1
-export OPENAI_BASE_URL=http://localhost:11434/v1
-export OPENAI_MODEL=qwen2.5-coder:7b
+#### Setup
 
-openclaude
-```
+1. **Create the strategy configuration** in your learning-system directory:
+   ```bash
+   # Create learning-system/modelo-strategy.json
+   {
+     "estrategia_global": "seleccionar_por_tarea_automaticamente",
+     "modelos_disponibles": {
+       "codellama:7b-code": {
+         "mejor_para": ["generar código", "debugging", "explicar sintaxis"],
+         "latencia": "2-5s",
+         "exactitud": "85%",
+         "estado_instalacion": "instalado"
+       },
+       "neural-chat:7b": {
+         "mejor_para": ["conversación", "pregunta-respuesta", "resumen"],
+         "latencia": "2-5s",
+         "exactitud": "80%",
+         "estado_instalacion": "instalado"
+       },
+       "mistral:7b": {
+         "mejor_para": ["razonamiento", "análisis", "búsqueda"],
+         "latencia": "3-7s",
+         "exactitud": "75%",
+         "estado_instalacion": "instalado"
+       }
+     },
+     "fallback_strategy": "neural-chat:7b"
+   }
+   ```
 
-Windows PowerShell:
+2. **Enable automatic switching**:
+   ```bash
+   export OPENCLAUDE_AUTO_MODEL_SWITCH=true
+   export OPENAI_BASE_URL=http://localhost:11434/v1
+   openclaude
+   ```
 
-```powershell
-$env:CLAUDE_CODE_USE_OPENAI="1"
-$env:OPENAI_BASE_URL="http://localhost:11434/v1"
-$env:OPENAI_MODEL="qwen2.5-coder:7b"
+#### How It Works
 
-openclaude
-```
+The system automatically classifies your queries and selects the optimal model:
+
+- **Code tasks** (keywords: función, código, script, python, debug) → `codellama:7b-code`
+- **Analysis tasks** (keywords: analizar, explicar, razonar) → `mistral:7b`
+- **General conversation** → `neural-chat:7b`
+
+All decisions are logged to `learning-system/decisiones_log.jsonl` for analysis and improvement.
 
 ## Setup Guides
 
@@ -92,6 +122,7 @@ Beginner-friendly guides:
 - [Non-Technical Setup](docs/non-technical-setup.md)
 - [Windows Quick Start](docs/quick-start-windows.md)
 - [macOS / Linux Quick Start](docs/quick-start-mac-linux.md)
+- [Persistent Memory with claude-mem](docs/persistent-memory-claude-mem.md)
 
 Advanced and source-build guides:
 

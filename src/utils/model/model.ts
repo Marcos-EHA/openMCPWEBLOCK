@@ -195,12 +195,18 @@ function classifyTask(userInput: string): TaskClassification {
   const debugMatches = debugKeywords.filter(k => input.includes(k)).length;
   const docMatches = docKeywords.filter(k => input.includes(k)).length;
 
-  // Determine primary task type
+  // Special handling for debugging: boost if error-related
+  const hasErrorKeywords = ['error', 'exception', 'bug', 'crash', 'problema'].some(k => input.includes(k));
+  const boostedDebugScore = hasErrorKeywords ? debugMatches * 1.5 : debugMatches;
+
+  // Special handling for analysis: reduce if also contains code keywords
+  const analysisScore = (codeMatches > 0) ? analysisMatches * 0.5 : analysisMatches;
+
   const scores = [
     { type: 'codigo' as const, score: codeMatches },
-    { type: 'analisis' as const, score: analysisMatches },
+    { type: 'analisis' as const, score: analysisScore },
     { type: 'busqueda' as const, score: searchMatches },
-    { type: 'debugging' as const, score: debugMatches },
+    { type: 'debugging' as const, score: boostedDebugScore },
     { type: 'documentacion' as const, score: docMatches }
   ];
 
@@ -216,9 +222,14 @@ function classifyTask(userInput: string): TaskClassification {
     };
   }
 
-  // Calculate confidence based on match ratio
+  // Calculate confidence based on match ratio and uniqueness
   const totalMatches = codeMatches + analysisMatches + searchMatches + debugMatches + docMatches;
-  const confidence = totalMatches > 0 ? maxScore / totalMatches : 0;
+  let confidence = totalMatches > 0 ? maxScore / totalMatches : 0;
+
+  // Boost confidence for clear task indicators
+  if (input.includes('escribe') && input.includes('función')) confidence = Math.min(confidence * 1.3, 1.0);
+  if (hasErrorKeywords && debugMatches > 0) confidence = Math.min(confidence * 1.2, 1.0);
+  if (input.includes('analiz') && !input.includes('código')) confidence = Math.min(confidence * 1.1, 1.0);
 
   return {
     type: bestMatch?.type || 'conversacion',
