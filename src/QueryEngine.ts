@@ -64,6 +64,7 @@ import { countToolCalls, SYNTHETIC_MESSAGES } from './utils/messages.js'
 import {
   getMainLoopModel,
   parseUserSpecifiedModel,
+  getBestModelForQuery,
 } from './utils/model/model.js'
 import { loadAllPluginsCacheOnly } from './utils/plugins/pluginLoader.js'
 import {
@@ -352,7 +353,7 @@ export class QueryEngine {
         debug: false, // we use stdout, so don't want to clobber it
         tools,
         verbose,
-        mainLoopModel: initialMainLoopModel,
+        mainLoopModel: finalMainLoopModel,
         thinkingConfig: initialThinkingConfig,
         mcpClients,
         mcpResources: {},
@@ -487,6 +488,12 @@ export class QueryEngine {
     }))
 
     const mainLoopModel = modelFromUserInput ?? initialMainLoopModel
+
+    // Apply automatic model switching based on user query if enabled
+    const finalMainLoopModel = process.env.OPENCLAUDE_AUTO_MODEL_SWITCH === 'true' ||
+                              process.env.CLAUDE_CODE_AUTO_SWITCH === 'true'
+      ? getBestModelForQuery(prompt)
+      : mainLoopModel
 
     // Recreate after processing the prompt to pick up updated messages and
     // model (from slash commands).

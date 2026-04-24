@@ -108,16 +108,219 @@ export function getUserSpecifiedModelSetting(): ModelSetting | undefined {
  *
  * @returns The resolved model name to use
  */
-export function getMainLoopModel(): ModelName {
-  const model = getUserSpecifiedModelSetting()
-  if (model !== undefined && model !== null) {
-    return parseUserSpecifiedModel(model)
+const strategyPath = path.resolve(process.cwd(), '..', 'learning-system/modelo-strategy.json');
+
+// Types for model strategy
+interface ModelStrategy {
+  estrategia_global: string;
+  modelos_disponibles: Record<string, {
+    mejor_para: string[];
+    latencia: string;
+    exactitud: string;
+    estado_instalacion?: string;
+  }>;
+  fallback_strategy: string;
+}
+
+interface TaskClassification {
+  type: 'conversacion' | 'codigo' | 'analisis' | 'busqueda' | 'debugging' | 'documentacion';
+  confidence: number;
+  keywords: string[];
+}
+
+// Load model strategy from learning-system
+function loadModelStrategy(): ModelStrategy | null {
+  try {
+    if (!existsSync(strategyPath)) {
+      console.warn(`Model strategy file not found: ${strategyPath}`);
+      return null;
+    }
+    const content = readFileSync(strategyPath, 'utf-8');
+    return JSON.parse(content);
+  } catch (error) {
+    console.error(`Error loading model strategy: ${error}`);
+    return null;
   }
-  return getDefaultMainLoopModel()
+}
+
+// Classify user input to determine optimal model
+function classifyTask(userInput: string): TaskClassification {
+  const input = userInput.toLowerCase();
+
+  // Code-related keywords
+  const codeKeywords = [
+    'código', 'función', 'script', 'python', 'javascript', 'typescript',
+    'java', 'c++', 'php', 'ruby', 'go', 'rust', 'sql', 'html', 'css',
+    'api', 'endpoint', 'database', 'query', 'algoritmo', 'clase',
+    'método', 'variable', 'constante', 'import', 'export', 'async',
+    'await', 'promise', 'callback', 'framework', 'librería', 'paquete',
+    'dependencia', 'build', 'compile', 'debug', 'error', 'exception',
+    'stack trace', 'syntax', 'parsing', 'token', 'lexer', 'parser'
+  ];
+
+  // Analysis/Reasoning keywords
+  const analysisKeywords = [
+    'analizar', 'explicar', 'razonar', 'comparar', 'evaluar', 'resumir',
+    'interpretar', 'concluir', 'argumentar', 'evidencia', 'prueba',
+    'hipótesis', 'teoría', 'concepto', 'paradigma', 'arquitectura',
+    'diseño', 'patrón', 'estrategia', 'metodología', 'enfoque',
+    'perspectiva', 'visión', 'análisis', 'diagnóstico', 'auditoría'
+  ];
+
+  // Search/Documentation keywords
+  const searchKeywords = [
+    'buscar', 'encontrar', 'localizar', 'investigar', 'documentación',
+    'manual', 'guía', 'tutorial', 'referencia', 'documento', 'archivo',
+    'leer', 'revisar', 'consultar', 'verificar', 'confirmar', 'validar'
+  ];
+
+  // Debugging keywords
+  const debugKeywords = [
+    'debug', 'depurar', 'error', 'bug', 'problema', 'issue', 'fix',
+    'solucionar', 'corregir', 'arreglar', 'reparar', 'troubleshoot',
+    'diagnosticar', 'investigar', 'trace', 'log', 'exception', 'crash'
+  ];
+
+  // Documentation keywords
+  const docKeywords = [
+    'documentar', 'documentación', 'readme', 'md', 'markdown', 'wiki',
+    'comentario', 'docstring', 'javadoc', 'comentarios', 'explicar',
+    'describir', 'detallar', 'especificar', 'definir'
+  ];
+
+  // Count matches for each category
+  const codeMatches = codeKeywords.filter(k => input.includes(k)).length;
+  const analysisMatches = analysisKeywords.filter(k => input.includes(k)).length;
+  const searchMatches = searchKeywords.filter(k => input.includes(k)).length;
+  const debugMatches = debugKeywords.filter(k => input.includes(k)).length;
+  const docMatches = docKeywords.filter(k => input.includes(k)).length;
+
+  // Determine primary task type
+  const scores = [
+    { type: 'codigo' as const, score: codeMatches },
+    { type: 'analisis' as const, score: analysisMatches },
+    { type: 'busqueda' as const, score: searchMatches },
+    { type: 'debugging' as const, score: debugMatches },
+    { type: 'documentacion' as const, score: docMatches }
+  ];
+
+  const maxScore = Math.max(...scores.map(s => s.score));
+  const bestMatch = scores.find(s => s.score === maxScore);
+
+  // If no significant matches, default to conversation
+  if (maxScore === 0) {
+    return {
+      type: 'conversacion',
+      confidence: 0.5,
+      keywords: []
+    };
+  }
+
+  // Calculate confidence based on match ratio
+  const totalMatches = codeMatches + analysisMatches + searchMatches + debugMatches + docMatches;
+  const confidence = totalMatches > 0 ? maxScore / totalMatches : 0;
+
+  return {
+    type: bestMatch?.type || 'conversacion',
+    confidence: Math.min(confidence, 1.0),
+    keywords: [
+      ...codeKeywords.filter(k => input.includes(k)),
+      ...analysisKeywords.filter(k => input.includes(k)),
+      ...searchKeywords.filter(k => input.includes(k)),
+      ...debugKeywords.filter(k => input.includes(k)),
+      ...docKeywords.filter(k => input.includes(k))
+    ].slice(0, 5) // Limit to top 5 keywords
+  };
+}
+
+// Get optimal model based on task classification
+function getOptimalModel(userQuery: string): string {
+  const strategy = loadModelStrategy();
+  if (!strategy) {
+    // Fallback to default model selection
+    return getBestModel();
+  }
+
+  const classification = classifyTask(userQuery);
+
+  // Map task types to available models
+  const taskToModelMap: Record<string, string[]> = {
+    'codigo': ['codellama:7b-code', 'codellama', 'codegemma', 'codestral'],
+    'debugging': ['codellama:7b-code', 'codellama', 'deepseek-coder'],
+    'analisis': ['mistral', 'qwen2.5', 'llama2:13b', 'neural-chat'],
+    'busqueda': ['mistral', 'qwen2.5', 'neural-chat'],
+    'documentacion': ['neural-chat', 'mistral', 'qwen2.5'],
+    'conversacion': ['neural-chat', 'mistral', 'qwen2.5']
+  };
+
+  const candidateModels = taskToModelMap[classification.type] || [strategy.fallback_strategy];
+
+  // Find the first available model from candidates
+  for (const modelName of candidateModels) {
+    if (strategy.modelos_disponibles[modelName] &&
+        strategy.modelos_disponibles[modelName].estado_instalacion === 'instalado') {
+      return modelName;
+    }
+  }
+
+  // Fallback to default strategy
+  return strategy.fallback_strategy;
+}
+
+// Log model decision to learning system
+function logModelDecision(query: string, selectedModel: string, classification: TaskClassification, latency?: number) {
+  try {
+    const decisionsPath = path.resolve(process.cwd(), '..', 'learning-system/decisiones_log.jsonl');
+
+    const decisionEntry = {
+      timestamp: new Date().toISOString(),
+      query: query.substring(0, 200), // Truncate long queries
+      modelo_seleccionado: selectedModel,
+      razon_seleccion: classification.type,
+      confianza_clasificacion: classification.confidence,
+      palabras_clave: classification.keywords,
+      latencia_ms: latency || null,
+      estrategia: 'seleccionar_por_tarea_automaticamente',
+      fuente: 'openclaude_model_switching'
+    };
+
+    // Append to decisions log
+    const fs = require('fs');
+    fs.appendFileSync(decisionsPath, JSON.stringify(decisionEntry) + '\n');
+  } catch (error) {
+    console.warn(`Failed to log model decision: ${error}`);
+  }
 }
 
 export function getBestModel(): ModelName {
   return getDefaultOpusModel()
+}
+
+// Get best model for a specific query using automatic switching
+export function getBestModelForQuery(userQuery: string): ModelName {
+  // Check if automatic switching is enabled
+  const enableAutoSwitch = process.env.OPENCLAUDE_AUTO_MODEL_SWITCH === 'true' ||
+                          process.env.CLAUDE_CODE_AUTO_SWITCH === 'true';
+
+  if (!enableAutoSwitch) {
+    return getBestModel();
+  }
+
+  const optimalModel = getOptimalModel(userQuery);
+
+  // Log the decision
+  const classification = classifyTask(userQuery);
+  logModelDecision(userQuery, optimalModel, classification);
+
+  // For Ollama models, return as-is since they're handled via OpenAI compatibility
+  if (optimalModel.includes(':') || optimalModel.includes('llama') || optimalModel.includes('mistral')) {
+    // Set environment variable for Ollama model selection
+    process.env.OPENAI_MODEL = optimalModel;
+    return optimalModel as ModelName;
+  }
+
+  // For other providers, map to appropriate model names
+  return optimalModel as ModelName;
 }
 
 // @[MODEL LAUNCH]: Update the default Opus model (3P providers may lag so keep defaults unchanged).
