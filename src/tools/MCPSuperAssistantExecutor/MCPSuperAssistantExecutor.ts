@@ -24,8 +24,8 @@ const inputSchema = lazySchema(() =>
     proxyUrl: z
       .string()
       .optional()
-      .default('http://localhost:3006/sse')
-      .describe('URL of the MCP-SuperAssistant proxy server (default: http://localhost:3006/sse)'),
+      .default('http://localhost:3006')
+      .describe('URL of the MCP-SuperAssistant proxy server (default: http://localhost:3006)'),
   }),
 )
 
@@ -44,11 +44,6 @@ const outputSchema = lazySchema(() =>
 
 type OutputSchema = ReturnType<typeof outputSchema>
 
-interface MCPToolCall {
-  tool: string
-  input: Record<string, any>
-}
-
 interface MCPToolResult {
   content: Array<{
     type: string
@@ -58,63 +53,58 @@ interface MCPToolResult {
   isError?: boolean
 }
 
+/**
+ * Simple HTTP-based client for MCP-SuperAssistant proxy
+ * Uses standard JSON-RPC pattern for requests/responses
+ */
 class MCPSuperAssistantClient {
   private proxyUrl: string
-  private eventSource: EventSource | null = null
-  private messageHandlers: Map<string, (data: any) => void> = new Map()
   private requestId: number = 0
 
   constructor(proxyUrl: string) {
     this.proxyUrl = proxyUrl
   }
 
+  /**
+   * Verify connection to proxy by attempting a simple request
+   */
   async connect(): Promise<boolean> {
-    return new Promise((resolve) => {
-      try {
-        this.eventSource = new EventSource(this.proxyUrl)
+    try {
+      const rpcUrl = this.getRpcUrl()
+      const response = await fetch(rpcUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: `conn_${Date.now()}`,
+          method: 'initialize',
+          params: {},
+        }),
+      })
 
-        this.eventSource.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data)
-            const handler = this.messageHandlers.get(data.id)
-            if (handler) {
-              handler(data)
-              this.messageHandlers.delete(data.id)
-            }
-          } catch (error) {
-            console.error('Error parsing SSE message:', error)
-          }
-        }
-
-        this.eventSource.onerror = () => {
-          console.error('SSE connection error')
-          if (this.eventSource) {
-            this.eventSource.close()
-            this.eventSource = null
-          }
-          resolve(false)
-        }
-
-        // Give it a moment to connect
-        setTimeout(() => resolve(this.eventSource !== null), 500)
-      } catch (error) {
-        console.error('Failed to create SSE connection:', error)
-        resolve(false)
-      }
-    })
+      return response.ok
+    } catch {
+      return false
+    }
   }
 
-  async listTools(): Promise<any> {
+  async listTools(): Promise<any[]> {
     return this.sendRequest({
       method: 'tools/list',
+      params: {},
     })
   }
 
   async executeTool(toolName: string, parameters: Record<string, any>): Promise<any> {
+    const [serverName, methodName] = toolName.split('/').length === 2
+      ? toolName.split('/')
+      : [toolName, '']
+
     return this.sendRequest({
       method: 'tools/call',
       params: {
-        name: toolName,
+        server: serverName,
+        tool: methodName || toolName,
         arguments: parameters,
       },
     })
@@ -127,58 +117,58 @@ class MCPSuperAssistantClient {
     })
   }
 
-  private async sendRequest(request: Record<string, any>): Promise<any> {
-    return new Promise((resolve, reject) => {
-      const id = `req_${++this.requestId}`
-      const timeout = setTimeout(() => {
-        this.messageHandlers.delete(id)
-        reject(new Error('Request timeout'))
-      }, 10000)
+  private async sendRequest(request: { method: string; params: Record<string, any> }): Promise<any> {
+    const id = `req_${++this.requestId}_${Date.now()}`
+    const rpcUrl = this.getRpcUrl()
 
-      this.messageHandlers.set(id, (response) => {
-        clearTimeout(timeout)
-        if (response.error) {
-          reject(new Error(response.error))
-        } else {
-          resolve(response.result)
-        }
-      })
+    const payload = {
+      jsonrpc: '2.0',
+      id,
+      ...request,
+    }
 
-      // Send request via HTTP POST to the proxy
-      const requestPayload = { ...request, id }
-      fetch(`${this.proxyUrl.replace('/sse', '/rpc')}`, {
+    try {
+      const response = await fetch(rpcUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestPayload),
-      }).catch((error) => {
-        this.messageHandlers.delete(id)
-        clearTimeout(timeout)
-        reject(error)
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       })
-    })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+
+      const data = await response.json() as any
+
+      if (data.error) {
+        throw new Error(data.error.message || JSON.stringify(data.error))
+      }
+
+      return data.result || data
+    } catch (error) {
+      throw error instanceof Error
+        ? error
+        : new Error(`Request failed: ${String(error)}`)
+    }
+  }
+
+  private getRpcUrl(): string {
+    return this.proxyUrl.endsWith('/rpc')
+      ? this.proxyUrl
+      : this.proxyUrl.endsWith('/')
+        ? `${this.proxyUrl}rpc`
+        : `${this.proxyUrl}/rpc`
   }
 
   disconnect(): void {
-    if (this.eventSource) {
-      this.eventSource.close()
-      this.eventSource = null
-    }
+    // HTTP client has nothing to disconnect
   }
 }
 
 async function executeMCPSuperAssistantTool(input: InputSchema): Promise<OutputSchema> {
   const { action, toolName, parameters = {}, proxyUrl = 'http://localhost:3006' } = input
 
-  // Normalize proxy URL
-  const normalizedUrl = proxyUrl.endsWith('/sse')
-    ? proxyUrl
-    : proxyUrl.endsWith('/')
-      ? `${proxyUrl}sse`
-      : `${proxyUrl}/sse`
-
-  const client = new MCPSuperAssistantClient(normalizedUrl)
+  const client = new MCPSuperAssistantClient(proxyUrl)
 
   try {
     // Test connection to proxy
@@ -188,7 +178,7 @@ async function executeMCPSuperAssistantTool(input: InputSchema): Promise<OutputS
         success: false,
         action,
         data: null,
-        error: `Failed to connect to MCP-SuperAssistant proxy at ${normalizedUrl}. Ensure the proxy is running: npx @srbhptl39/mcp-superassistant-proxy@latest --config ./config.json --outputTransport sse`,
+        error: `Failed to connect to MCP-SuperAssistant proxy at ${proxyUrl}. Ensure the proxy is running on this port.`,
       }
     }
 
