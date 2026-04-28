@@ -1356,6 +1356,10 @@ export function createOpenAIShimClient(options: {
       process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN ?? ''
   }
 
+  // When using Ollama directly, allow the legacy OLLAMA_BASE_URL env var
+  // to serve as the OpenAI-compatible endpoint if OPENAI_BASE_URL is unset.
+  process.env.OPENAI_BASE_URL ??= process.env.OLLAMA_BASE_URL
+
   const beta = new OpenAIShimBeta({
     ...(options.defaultHeaders ?? {}),
   }, options.reasoningEffort, options.providerOverride)

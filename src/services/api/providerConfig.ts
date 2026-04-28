@@ -309,6 +309,7 @@ export function resolveProviderRequest(options?: {
   const rawBaseUrl =
     asEnvUrl(options?.baseUrl) ??
     asEnvUrl(process.env.OPENAI_BASE_URL) ??
+    asEnvUrl(process.env.OLLAMA_BASE_URL) ??
     asEnvUrl(process.env.OPENAI_API_BASE)
   const transport: ProviderTransport =
     shouldUseCodexTransport(requestedModel, rawBaseUrl)

@@ -38,6 +38,7 @@ const PROFILE_ENV_KEYS = [
   'GEMINI_MODEL',
   'GEMINI_BASE_URL',
   'GOOGLE_API_KEY',
+  'OLLAMA_BASE_URL',
 ] as const
 
 const SECRET_ENV_KEYS = [
@@ -60,6 +61,7 @@ export type ProfileEnv = {
   GEMINI_AUTH_MODE?: 'api-key' | 'access-token' | 'adc'
   GEMINI_MODEL?: string
   GEMINI_BASE_URL?: string
+  OLLAMA_BASE_URL?: string
 }
 
 export type ProfileFile = {
@@ -201,9 +203,11 @@ export function buildOllamaProfileEnv(
     getOllamaChatBaseUrl: (baseUrl?: string) => string
   },
 ): ProfileEnv {
+  const openaiBaseUrl = options.getOllamaChatBaseUrl(options.baseUrl ?? undefined)
   return {
-    OPENAI_BASE_URL: options.getOllamaChatBaseUrl(options.baseUrl ?? undefined),
+    OPENAI_BASE_URL: openaiBaseUrl,
     OPENAI_MODEL: model,
+    OLLAMA_BASE_URL: options.baseUrl ?? process.env.OLLAMA_BASE_URL ?? undefined,
   }
 }
 
@@ -564,6 +568,8 @@ export async function buildLaunchEnv(options: {
     env.OPENAI_MODEL =
       persistedOpenAIModel ||
       (await resolveOllamaModel(options.goal))
+    env.OLLAMA_BASE_URL =
+      processEnv.OLLAMA_BASE_URL || persistedEnv.OLLAMA_BASE_URL || undefined
 
     delete env.OPENAI_API_KEY
     delete env.CODEX_API_KEY

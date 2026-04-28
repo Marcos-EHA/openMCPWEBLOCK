@@ -36,7 +36,7 @@ export function usesAnthropicAccountFlow(): boolean {
 function isCodexModel(): boolean {
   return shouldUseCodexTransport(
     process.env.OPENAI_MODEL || '',
-    process.env.OPENAI_BASE_URL ?? process.env.OPENAI_API_BASE,
+    process.env.OPENAI_BASE_URL ?? process.env.OLLAMA_BASE_URL ?? process.env.OPENAI_API_BASE,
   )
 }
 

@@ -56,7 +56,7 @@ export function getAtomicChatChatBaseUrl(baseUrl?: string): string {
 
 export function getOpenAICompatibleModelsBaseUrl(baseUrl?: string): string {
   return (
-    baseUrl || process.env.OPENAI_BASE_URL || DEFAULT_OPENAI_BASE_URL
+    baseUrl || process.env.OPENAI_BASE_URL || process.env.OLLAMA_BASE_URL || DEFAULT_OPENAI_BASE_URL
   ).replace(/\/+$/, '')
 }
 

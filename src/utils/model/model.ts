@@ -5,6 +5,8 @@
  * literals with process.env.USER_TYPE === 'ant' for Bun to remove the codenames
  * during dead code elimination
  */
+import { existsSync, readFileSync } from 'node:fs'
+import path from 'node:path'
 import { getMainLoopModelOverride } from '../../bootstrap/state.js'
 import {
   getSubscriptionType,
@@ -264,18 +266,18 @@ function getOptimalModel(userQuery: string): string {
     'conversacion': ['neural-chat', 'mistral', 'qwen2.5']
   };
 
-  const candidateModels = taskToModelMap[classification.type] || [strategy.fallback_strategy];
+  const candidateModels = taskToModelMap[classification.type] || [strategy.configuracion_automatica?.fallback_model || 'neural-chat'];
 
   // Find the first available model from candidates
   for (const modelName of candidateModels) {
     if (strategy.modelos_disponibles[modelName] &&
-        strategy.modelos_disponibles[modelName].estado_instalacion === 'instalado') {
+        strategy.modelos_disponibles[modelName].estado === 'instalado') {
       return modelName;
     }
   }
 
   // Fallback to default strategy
-  return strategy.fallback_strategy;
+  return strategy.configuracion_automatica?.fallback_model || 'neural-chat';
 }
 
 // Log model decision to learning system
@@ -309,14 +311,20 @@ export function getBestModel(): ModelName {
 
 // Get best model for a specific query using automatic switching
 export function getBestModelForQuery(userQuery: string): ModelName {
-  // Check if automatic switching is enabled
-  const enableAutoSwitch = process.env.OPENCLAUDE_AUTO_MODEL_SWITCH === 'true' ||
-                          process.env.CLAUDE_CODE_AUTO_SWITCH === 'true';
+  // Auto-switching DISABLED - use default model selection only
+  const enableAutoSwitch = false; // process.env.OPENCLAUDE_AUTO_MODEL_SWITCH === 'true' ||
+                                  // process.env.CLAUDE_CODE_AUTO_SWITCH === 'true';
 
   if (!enableAutoSwitch) {
     return getBestModel();
   }
 
+  // For multi-model architecture, always use reasoning model as primary
+  // Specialized models are accessed via tools (delegate_to_model)
+  return 'llama3.2:3b' as ModelName;
+
+  // Legacy code for automatic switching by task type
+  /*
   const optimalModel = getOptimalModel(userQuery);
 
   // Log the decision
@@ -332,6 +340,7 @@ export function getBestModelForQuery(userQuery: string): ModelName {
 
   // For other providers, map to appropriate model names
   return optimalModel as ModelName;
+  */
 }
 
 // @[MODEL LAUNCH]: Update the default Opus model (3P providers may lag so keep defaults unchanged).
@@ -492,6 +501,8 @@ export function getDefaultMainLoopModelSetting(): ModelName | ModelAlias {
 export function getDefaultMainLoopModel(): ModelName {
   return parseUserSpecifiedModel(getDefaultMainLoopModelSetting())
 }
+
+export const getMainLoopModel = getDefaultMainLoopModel
 
 // @[MODEL LAUNCH]: Add a canonical name mapping for the new model below.
 /**

@@ -216,6 +216,59 @@ With Firecrawl enabled:
 
 Free tier at [firecrawl.dev](https://firecrawl.dev) includes 500 credits. The key is optional.
 
+## Ollama Local Models with Auto-Switching
+
+OpenClaude supports local Ollama models with automatic model switching based on task type. This allows using a reasoning model for general conversation and specialized models for specific tasks like coding.
+
+### Setup Ollama
+
+1. Install Ollama from [ollama.ai](https://ollama.ai)
+2. Pull recommended models:
+   ```bash
+   ollama pull neural-chat:7b    # General reasoning and conversation
+   ollama pull codellama:7b-code # Code generation and analysis
+   ```
+
+### Run with Auto-Switching
+
+Use the provided script to start OpenClaude with Ollama and auto-switching:
+
+```bash
+# Windows
+scripts\run-openclaude-reasoning.cmd
+
+# Or manually set environment variables:
+export OPENAI_BASE_URL=http://localhost:11434/v1
+export CLAUDE_CODE_USE_OPENAI=true
+export OPENAI_MODEL=neural-chat:7b
+export OPENCLAUDE_AUTO_MODEL_SWITCH=true
+bun run src/entrypoints/cli.ts
+```
+
+### How Auto-Switching Works
+
+- **Primary Model**: `llama3.2:3b` handles all conversation and reasoning (128K context)
+- **Tool-Based Delegation**: Uses `delegate_to_model` tool to access specialized models
+- **Specialized Models**:
+  - `codellama:7b-code`: Accessed via tool for coding tasks
+  - `neural-chat:7b`: Alternative for conversation
+- **Strategy File**: Uses `../learning-system/modelo-strategy.json` for model configurations
+- **Logging**: Tool usage logged to `../learning-system/decisiones_log.jsonl`
+
+### Multi-Model Architecture
+
+The system uses a reasoning model (`neural-chat:7b`) as the primary agent that can delegate specialized tasks to other models using tools. This provides:
+
+- **Unified Conversation**: Single model handles all user interaction
+- **Specialized Expertise**: Access to domain-specific models when needed
+- **Dynamic Delegation**: Model decides when to use specialized tools based on task requirements
+
+### Troubleshooting
+
+- **Context Limit**: If you see "Context limit reached", try clearing history with `/clear` or use `/compact`
+- **Model Not Found**: Ensure models are pulled with `ollama pull <model>`
+- **Switching Not Working**: Check `OPENCLAUDE_AUTO_MODEL_SWITCH=true` and strategy file exists
+
 ---
 
 ## Headless gRPC Server
