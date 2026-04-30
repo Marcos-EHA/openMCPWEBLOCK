@@ -12,7 +12,9 @@ import {
   getGlobalConfig,
   saveCurrentProjectConfig,
   saveGlobalConfig,
+  type McpExecutionMode,
 } from '../../utils/config.js'
+import { getMcpModeComposition } from '../../tools.js'
 import { getCwd } from '../../utils/cwd.js'
 import { logForDebugging } from '../../utils/debug.js'
 import { getErrnoCode } from '../../utils/errors.js'
@@ -1057,6 +1059,29 @@ export function getMcpConfigByName(name: string): ScopedMcpServerConfig | null {
   }
 
   return null
+}
+
+export function getConfiguredMcpServerNames(): string[] {
+  const { servers: enterpriseServers } = getMcpConfigsByScope('enterprise')
+  const { servers: userServers } = getMcpConfigsByScope('user')
+  const { servers: projectServers } = getMcpConfigsByScope('project')
+  const { servers: localServers } = getMcpConfigsByScope('local')
+
+  return Array.from(
+    new Set([
+      ...Object.keys(enterpriseServers),
+      ...Object.keys(userServers),
+      ...Object.keys(projectServers),
+      ...Object.keys(localServers),
+    ]),
+  )
+}
+
+export function getMcpModeCompositionForConfig(
+  mode: McpExecutionMode,
+): ReturnType<typeof getMcpModeComposition> {
+  const configuredServers = getConfiguredMcpServerNames()
+  return getMcpModeComposition(mode, configuredServers)
 }
 
 /**

@@ -6,10 +6,15 @@ import { useMcpToggleEnabled } from '../../services/mcp/MCPConnectionManager.js'
 import { useAppState } from '../../state/AppState.js';
 import type { LocalJSXCommandOnDone } from '../../types/command.js';
 import { PluginSettings } from '../plugin/PluginSettings.js';
+import { getMcpModeComposition } from '../../tools.js';
+import type { McpExecutionMode } from '../../utils/config.js';
+import { getCurrentProjectConfig, saveCurrentProjectConfig } from '../../utils/config.js';
+import { getConfiguredMcpServerNames, getMcpConfigByName } from '../../services/mcp/config.js';
+import { validateMcpModeConnectivity } from '../../services/mcp/client.js';
 
 // TODO: This is a hack to get the context value from toggleMcpServer (useContext only works in a component)
 // Ideally, all MCP state and functions would be in global state.
-function MCPToggle(t0) {
+function MCPToggle(t0: any) {
   const $ = _c(7);
   const {
     action,
@@ -29,7 +34,7 @@ function MCPToggle(t0) {
       didRun.current = true;
       const isEnabling = action === "enable";
       const clients = mcpClients.filter(_temp2);
-      const toToggle = target === "all" ? clients.filter(c_0 => isEnabling ? c_0.type === "disabled" : c_0.type !== "disabled") : clients.filter(c_1 => c_1.name === target);
+      const toToggle = target === "all" ? clients.filter((c_0: any) => isEnabling ? c_0.type === "disabled" : c_0.type !== "disabled") : clients.filter((c_1: any) => c_1.name === target);
       if (toToggle.length === 0) {
         onComplete(target === "all" ? `All MCP servers are already ${isEnabling ? "enabled" : "disabled"}` : `MCP server "${target}" not found`);
         return;
@@ -54,11 +59,85 @@ function MCPToggle(t0) {
   useEffect(t1, t2);
   return null;
 }
-function _temp2(c) {
+function _temp2(c: any) {
   return c.name !== "ide";
 }
-function _temp(s) {
+function _temp(s: any) {
   return s.mcp.clients;
+}
+function MCPSetMode({ mode, onComplete }: { mode: 'api' | 'web' | 'auto'; onComplete: (message: string) => void }) {
+  const didRun = useRef(false);
+  useEffect(() => {
+    if (didRun.current) return;
+    didRun.current = true;
+    saveCurrentProjectConfig(config => ({
+      ...config,
+      mcpExecutionMode: mode,
+    }));
+    onComplete(`MCP execution mode set to '${mode}'`);
+  }, [mode, onComplete]);
+  return null;
+}
+function MCPStatus({ onComplete }: { onComplete: (message: string) => void }) {
+  const mcpClients = useAppState((s: any) => s.mcp.clients);
+  const didRun = useRef(false);
+
+  useEffect(() => {
+    if (didRun.current) return;
+    didRun.current = true;
+
+    const runStatus = async () => {
+      const config = getCurrentProjectConfig();
+      const mode = (config.mcpExecutionMode || 'api') as McpExecutionMode;
+      const configuredServerNames = getConfiguredMcpServerNames();
+      const activeServerNames = mcpClients.map((client: any) => client.name);
+
+      const serverConfigs = configuredServerNames
+        .map(name => [name, getMcpConfigByName(name)] as const)
+        .filter(([, cfg]) => cfg !== null)
+        .reduce<Record<string, any>>((acc, [name, cfg]) => {
+          acc[name] = cfg
+          return acc
+        }, {})
+
+      const connectivity = await validateMcpModeConnectivity(mode, serverConfigs)
+
+      const lines = [
+        `MCP mode: ${mode}`,
+        `Configured MCP servers: ${
+          configuredServerNames.length > 0
+            ? configuredServerNames.join(', ')
+            : 'none'
+        }`,
+        `Active MCP clients: ${
+          activeServerNames.length > 0 ? activeServerNames.join(', ') : 'none'
+        }`,
+        `Expected servers for mode: ${connectivity.expectedServers.join(', ')}`,
+        `Reachable servers: ${
+          connectivity.reachableServers.length > 0
+            ? connectivity.reachableServers.join(', ')
+            : 'none'
+        }`,
+      ];
+
+      if (connectivity.unreachableServers.length > 0) {
+        lines.push(
+          `Unreachable expected servers: ${connectivity.unreachableServers.join(', ')}`,
+        )
+      }
+      if (connectivity.missingServers.length === 0) {
+        lines.push('No expected servers are missing.');
+      } else {
+        lines.push(`Missing expected servers: ${connectivity.missingServers.join(', ')}`);
+        lines.push('MCP will degrade gracefully to available servers and built-in tools.');
+      }
+      onComplete(lines.join('\n'))
+    }
+
+    void runStatus()
+  }, [mcpClients, onComplete]);
+
+  return null;
 }
 export async function call(onDone: LocalJSXCommandOnDone, _context: unknown, args?: string): Promise<React.ReactNode> {
   if (args) {
@@ -74,10 +153,16 @@ export async function call(onDone: LocalJSXCommandOnDone, _context: unknown, arg
     if (parts[0] === 'enable' || parts[0] === 'disable') {
       return <MCPToggle action={parts[0]} target={parts.length > 1 ? parts.slice(1).join(' ') : 'all'} onComplete={onDone} />;
     }
+    if (parts[0] === 'set-mode' && parts[1] && ['api', 'web', 'auto'].includes(parts[1])) {
+      return <MCPSetMode mode={parts[1] as 'api' | 'web' | 'auto'} onComplete={onDone} />;
+    }
+    if (parts[0] === 'status') {
+      return <MCPStatus onComplete={onDone} />;
+    }
   }
 
   // Redirect base /mcp command to /plugins installed tab for ant users
-  if ("external" === 'ant') {
+  if ('external' as string === 'ant') {
     return <PluginSettings onComplete={onDone} args="manage" showMcpRedirectMessage />;
   }
   return <MCPSettings onComplete={onDone} />;

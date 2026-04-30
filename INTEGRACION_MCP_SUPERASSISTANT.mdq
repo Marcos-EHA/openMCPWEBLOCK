@@ -1,0 +1,119 @@
+# Integracion OpenClaude + MCP-SuperAssistant (.mdq)
+
+## 1) Respuesta corta a tu pregunta
+
+Si, revise a fondo MCP-SuperAssistant en su arquitectura base: extension (inyeccion en DOM), parser de llamadas de herramientas, y proxy local MCP (`@srbhptl39/mcp-superassistant-proxy`) con transportes `sse`, `streamableHttp` y `ws`.
+
+La mejor sinergia para evitar friccion en charlas simples es **separar dos modos** y no forzar tool-calling siempre.
+
+---
+
+## 2) Sinergia recomendada (practica)
+
+### Modo A: Conversacion pura (default)
+- Motor: OpenClaude + modelo (local o API).
+- Sin inyeccion MCP obligatoria en cada turno.
+- Uso ideal: brainstorming, redaccion, consultas rapidas.
+
+### Modo B: Conversacion con herramientas (on-demand)
+- Mismo chat, pero activando MCP cuando la tarea lo requiera.
+- Fuente de herramientas:
+  - `claude-mem` para memoria/contexto persistente.
+  - `superassistant-proxy` para exponer MCP a chats web (ChatGPT/Gemini/etc.) mediante extension.
+- Uso ideal: acciones concretas (leer archivos, automatizar web, ejecutar flujos).
+
+### Regla de enrutamiento recomendada
+- Si la intencion es "solo hablar o analizar" -> Modo A.
+- Si la intencion requiere acciones verificables (I/O, browser ops, APIs) -> Modo B.
+
+Esto elimina el mayor inconveniente que mencionaste: sobrecargar una charla simple con formato de tool calls.
+
+---
+
+## 3) Integracion aplicada en este proyecto
+
+Se implemento:
+
+1. Registro de servidor MCP del proxy en `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "superassistant-proxy": {
+      "type": "sse",
+      "url": "http://localhost:3006/sse",
+      "disabled": false
+    }
+  }
+}
+```
+
+2. Script de arranque y monitoreo:
+- `launch-superassistant-proxy.ps1`
+- Inicia proxy por `npx`, verifica proceso vivo y ejecuta health check `GET /health`.
+
+---
+
+## 4) Flujo operativo recomendado
+
+1. **Terminal 1 (agente principal)**  
+   Ejecuta OpenClaude con tu modelo (local/API).
+
+2. **Terminal 2 (bridge MCP web)**  
+   Ejecuta:
+
+```powershell
+.\launch-superassistant-proxy.ps1
+```
+
+3. **Navegador (ChatGPT/Gemini/etc.)**
+- Activa extension MCP-SuperAssistant.
+- Conecta a `http://localhost:3006/sse`.
+- Inserta instrucciones MCP solo cuando entres en Modo B.
+
+4. **Memoria**
+- Mantener `claude-mem` activo en `.mcp.json`.
+- Guardar decisiones y resumenes al final de tareas largas para mejorar contexto futuro.
+
+---
+
+## 5) Donde encajan Playwright / Google MCP
+
+Tu idea es valida, y lo mejor es usarlos como "herramientas especializadas" dentro de Modo B:
+- Playwright MCP: automatizacion web reproducible.
+- Google MCP (Drive/Docs/Calendar/etc.): contexto documental y operaciones de negocio.
+
+Patron recomendado:
+- Modelo razona -> decide herramienta -> ejecuta via MCP -> retorna evidencia -> continua conversacion.
+
+---
+
+## 6) Ejemplo real de uso (reproducible)
+
+Escenario: "Necesito validar que el bridge MCP esta operativo antes de usar herramientas en chat web."
+
+Pasos:
+1. `.\launch-superassistant-proxy.ps1`
+2. Confirmar health endpoint `http://localhost:3006/health` (200 OK).
+3. Abrir plataforma web + extension y conectar a `/sse`.
+4. Prompt sugerido en chat web:
+
+```text
+Activa flujo MCP y ejecuta una herramienta de prueba para confirmar conectividad.
+Si falla, reporta causa y siguiente accion.
+```
+
+Resultado esperado:
+- Conexion establecida.
+- Tool call detectada/ejecutada.
+- Respuesta con evidencia de resultado y estado.
+
+---
+
+## 7) Recomendaciones finales
+
+- Mantener Modo A como default para UX rapida.
+- Activar Modo B solo por intencion (no por defecto).
+- Conservar `claude-mem` para continuidad entre sesiones.
+- Versionar una guia de operaciones (runbook) y checklist de salud del proxy.
+- Si quieres, siguiente iteracion: crear script unico que lance OpenClaude + proxy + validaciones en un solo comando.

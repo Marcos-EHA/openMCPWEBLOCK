@@ -33,6 +33,9 @@ import { getManagedFilePath } from './settings/managedPath.js'
 import type { ThemeSetting } from './theme.js'
 import { PRIMARY_PROJECT_INSTRUCTION_FILE } from './projectInstructions.js'
 
+export type McpExecutionMode = 'api' | 'web' | 'auto'
+export const DEFAULT_MCP_EXECUTION_MODE: McpExecutionMode = 'api'
+
 /* eslint-disable @typescript-eslint/no-require-imports */
 const teamMemPaths = feature('TEAMMEM')
   ? (require('../memdir/teamMemPaths.js') as typeof import('../memdir/teamMemPaths.js'))
@@ -73,6 +76,10 @@ export interface HistoryEntry {
 }
 
 export type ReleaseChannel = 'stable' | 'latest'
+
+export type McpExecutionMode = 'api' | 'web' | 'auto'
+
+export const DEFAULT_MCP_EXECUTION_MODE: McpExecutionMode = 'api'
 
 export type ProjectConfig = {
   allowedTools: string[]
@@ -134,6 +141,8 @@ export type ProjectConfig = {
   }
   /** Spawn mode for `claude remote-control` multi-session. Set by first-run dialog or `w` toggle. */
   remoteControlSpawnMode?: 'same-dir' | 'worktree'
+  /** Mode for MCP execution: 'api' for direct API calls, 'web' for web relay via MCP-SuperAssistant, 'auto' for automatic selection */
+  mcpExecutionMode?: McpExecutionMode
 }
 
 const DEFAULT_PROJECT_CONFIG: ProjectConfig = {
@@ -146,6 +155,7 @@ const DEFAULT_PROJECT_CONFIG: ProjectConfig = {
   projectOnboardingSeenCount: 0,
   hasClaudeMdExternalIncludesApproved: false,
   hasClaudeMdExternalIncludesWarningShown: false,
+  mcpExecutionMode: DEFAULT_MCP_EXECUTION_MODE,
 }
 
 export type InstallMethod = 'local' | 'native' | 'global' | 'unknown'

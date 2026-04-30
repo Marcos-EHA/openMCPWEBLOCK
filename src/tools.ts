@@ -129,6 +129,7 @@ import { isEnvTruthy } from './utils/envUtils.js'
 import { isPowerShellToolEnabled } from './utils/shell/shellToolUtils.js'
 import { isAgentSwarmsEnabled } from './utils/agentSwarmsEnabled.js'
 import { isWorktreeModeEnabled } from './utils/worktreeModeEnabled.js'
+import { getCurrentProjectConfig } from './utils/config.js'
 import {
   REPL_TOOL_NAME,
   REPL_ONLY_TOOLS,
@@ -157,6 +158,73 @@ export function parseToolPreset(preset: string): ToolPreset | null {
     return null
   }
   return presetString as ToolPreset
+}
+
+export type McpExecutionMode = 'api' | 'web' | 'auto'
+
+export const MCP_MODE_SERVER_TARGETS: Record<McpExecutionMode, string[]> = {
+  api: ['claude-mem'],
+  web: ['superassistant-proxy', 'chrome-devtools', 'claude-mem'],
+  auto: [],
+}
+
+export function normalizeMcpServerName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[_\s]+/g, '-')
+    .replace(/-mcp$/, '')
+}
+
+export function isServerMatch(actual: string, expected: string): boolean {
+  return normalizeMcpServerName(actual) === normalizeMcpServerName(expected)
+}
+
+export function getMcpModeExpectedServers(
+  mode: McpExecutionMode,
+  availableServers: string[] = [],
+): string[] {
+  if (mode === 'auto') {
+    return availableServers
+  }
+  return MCP_MODE_SERVER_TARGETS[mode] ?? []
+}
+
+export function filterMcpToolsForMode<
+  T extends { mcpInfo?: { serverName: string } },
+>(tools: T[], mode: McpExecutionMode): T[] {
+  if (mode === 'auto') {
+    return tools
+  }
+  const expectedServers = getMcpModeExpectedServers(mode)
+  return tools.filter(
+    tool =>
+      tool.mcpInfo &&
+      expectedServers.some(expected =>
+        isServerMatch(tool.mcpInfo!.serverName, expected),
+      ),
+  )
+}
+
+export function getMcpModeComposition(
+  mode: McpExecutionMode,
+  availableServerNames: string[],
+) {
+  const expectedServers = getMcpModeExpectedServers(mode, availableServerNames)
+  const detectedServers = availableServerNames.filter(name =>
+    expectedServers.some(expected => isServerMatch(name, expected)),
+  )
+  const missingServers = expectedServers.filter(
+    expected =>
+      !availableServerNames.some(actual =>
+        isServerMatch(actual, expected),
+      ),
+  )
+  return {
+    mode,
+    expectedServers,
+    detectedServers,
+    missingServers,
+  }
 }
 
 /**
@@ -334,9 +402,14 @@ export function assembleToolPool(
   mcpTools: Tools,
 ): Tools {
   const builtInTools = getTools(permissionContext)
+  const config = getCurrentProjectConfig()
+  const mode = (config.mcpExecutionMode || 'api') as McpExecutionMode
 
   // Filter out MCP tools that are in the deny list
-  const allowedMcpTools = filterToolsByDenyRules(mcpTools, permissionContext)
+  let allowedMcpTools = filterToolsByDenyRules(mcpTools, permissionContext)
+
+  // Filter MCP tools based on execution mode
+  allowedMcpTools = filterMcpToolsForMode(allowedMcpTools, mode)
 
   // Sort each partition for prompt-cache stability, keeping built-ins as a
   // contiguous prefix. The server's claude_code_system_cache_policy places a

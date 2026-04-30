@@ -36,6 +36,7 @@ import breakCache from './commands/break-cache/index.js'
 import cacheProbe from './commands/cache-probe/index.js'
 import cacheStats from './commands/cacheStats/index.js'
 import mcp from './commands/mcp/index.js'
+import consensus from './commands/consensus/index.js'
 import mobile from './commands/mobile/index.js'
 import onboarding from './commands/onboarding/index.js'
 import pr_comments from './commands/pr_comments/index.js'
@@ -299,6 +300,7 @@ const COMMANDS = memoize((): Command[] => [
   installGitHubApp,
   installSlackApp,
   mcp,
+  consensus,
   memory,
   mobile,
   model,

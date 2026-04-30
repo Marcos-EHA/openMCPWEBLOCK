@@ -50,6 +50,8 @@ import {
   type ToolCallProgress,
   toolMatchesName,
 } from '../../Tool.js'
+import { getMcpModeComposition, isServerMatch } from '../../tools.js'
+import type { McpExecutionMode } from '../../utils/config.js'
 import { ListMcpResourcesTool } from '../../tools/ListMcpResourcesTool/ListMcpResourcesTool.js'
 import { type MCPProgress, MCPTool } from '../../tools/MCPTool/MCPTool.js'
 import { createMcpAuthTool } from '../../tools/McpAuthTool/McpAuthTool.js'
@@ -1722,6 +1724,48 @@ export async function ensureConnectedClient(
     )
   }
   return connectedClient
+}
+
+export async function validateMcpModeConnectivity(
+  mode: McpExecutionMode,
+  mcpServerConfigs: Record<string, ScopedMcpServerConfig>,
+): Promise<{
+  expectedServers: string[]
+  reachableServers: string[]
+  unreachableServers: string[]
+  missingServers: string[]
+}> {
+  const availableServerNames = Object.keys(mcpServerConfigs)
+  const composition = getMcpModeComposition(mode, availableServerNames)
+  const reachableServers: string[] = []
+  const unreachableServers: string[] = []
+
+  for (const expectedServer of composition.expectedServers) {
+    const matchedConfigEntry = Object.entries(mcpServerConfigs).find(
+      ([name]) => isServerMatch(name, expectedServer),
+    )
+    if (!matchedConfigEntry) {
+      continue
+    }
+    const [serverName, serverConfig] = matchedConfigEntry
+    try {
+      const connectedClient = await connectToServer(serverName, serverConfig)
+      if (connectedClient.type === 'connected') {
+        reachableServers.push(serverName)
+      } else {
+        unreachableServers.push(serverName)
+      }
+    } catch {
+      unreachableServers.push(serverName)
+    }
+  }
+
+  return {
+    expectedServers: composition.expectedServers,
+    reachableServers,
+    unreachableServers,
+    missingServers: composition.missingServers,
+  }
 }
 
 /**

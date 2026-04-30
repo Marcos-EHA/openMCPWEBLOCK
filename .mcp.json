@@ -1,0 +1,31 @@
+{
+  "mcpServers": {
+    "superassistant-proxy": {
+      "type": "http",
+      "url": "http://localhost:3006/mcp",
+      "disabled": false,
+      "description": "Web Relay Mode proxy - connects to IAs in browsers (ChatGPT, Gemini, etc.)"
+    },
+    "claude-mem": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "claude-mem",
+        "start"
+      ],
+      "disabled": false,
+      "description": "Persistent memory server - saves context across sessions"
+    },
+    "chrome-devtools-mcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp"
+      ],
+      "disabled": false,
+      "description": "Chrome DevTools automation - deterministic browser control"
+    }
+  }
+}
