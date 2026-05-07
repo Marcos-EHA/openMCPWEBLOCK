@@ -77,10 +77,6 @@ export interface HistoryEntry {
 
 export type ReleaseChannel = 'stable' | 'latest'
 
-export type McpExecutionMode = 'api' | 'web' | 'auto'
-
-export const DEFAULT_MCP_EXECUTION_MODE: McpExecutionMode = 'api'
-
 export type ProjectConfig = {
   allowedTools: string[]
   mcpContextUris: string[]
@@ -143,6 +139,8 @@ export type ProjectConfig = {
   remoteControlSpawnMode?: 'same-dir' | 'worktree'
   /** Mode for MCP execution: 'api' for direct API calls, 'web' for web relay via MCP-SuperAssistant, 'auto' for automatic selection */
   mcpExecutionMode?: McpExecutionMode
+  /** Selected web platform when mcpExecutionMode is 'web' */
+  selectedWebPlatform?: string
 }
 
 const DEFAULT_PROJECT_CONFIG: ProjectConfig = {

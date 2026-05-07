@@ -1,0 +1,7 @@
+Error [ERR_STREAM_DESTROYED]: Cannot call write after a stream was destroyed
+    at _write (node:internal/streams/writable:489:11)
+    at Writable.write (node:internal/streams/writable:508:10)
+    at file:///C:/Users/apoca/openMCPWEBLOCK/mcp-client-node.js:88:22
+    at new Promise (<anonymous>)
+    at sendMessage (file:///C:/Users/apoca/openMCPWEBLOCK/mcp-client-node.js:82:10)
+    at main (file:///C:/Users/apoca/openMCPWEBLOCK/mcp-client-node.js:147:28)

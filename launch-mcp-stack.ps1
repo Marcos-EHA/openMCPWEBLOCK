@@ -108,7 +108,7 @@ $proxyStderr = Join-Path $logDir 'superassistant-proxy.stderr.log'
 
 $claudeMemArgs = @('-y', 'claude-mem', 'start')
 $chromeDevtoolsArgs = @('-y', 'chrome-devtools-mcp')
-$proxyArgs = @('-y', '@srbhptl39/mcp-superassistant-proxy@latest', '--config', '.\superassistant-proxy.config.json', '--port', '3006', '--outputTransport', 'ws')
+$proxyArgs = @('-y', '@srbhptl39/mcp-superassistant-proxy@latest', '--config', '.\superassistant-proxy.config.json', '--port', '3006', '--outputTransport', 'streamableHttp', '--healthEndpoint', '/healthz')
 
 Clean-ExistingMCPStack
 
@@ -136,7 +136,7 @@ function Test-ProxyHealth {
     }
 }
 
-Test-ProxyHealth 'http://localhost:3006/mcp'
+Test-ProxyHealth 'http://localhost:3006/healthz'
 
 
 Write-Host "" -ForegroundColor Cyan

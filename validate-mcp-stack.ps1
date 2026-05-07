@@ -10,7 +10,7 @@
 
 param(
     [int]$Port = 3006,
-    [string]$HealthPath = '/mcp'
+    [string]$HealthPath = '/healthz'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -54,21 +54,23 @@ if ($claudeMemExit -ne 0 -or $chromeDevtoolsExit -ne 0) {
 Write-Host "" -ForegroundColor Cyan
 Write-Host "Verificando el proxy MCP..." -ForegroundColor Cyan
 try {
-    # POST al endpoint MCP con configuración correcta
-    $body = @{ "jsonrpc"="2.0"; "method"="tools/list"; "params"=@{}; "id"=1 } | ConvertTo-Json
-    $response = Invoke-WebRequest -Uri "http://localhost:$Port$HealthPath" -Method Post -ContentType "application/json" -Body $body -UseBasicParsing -TimeoutSec 10
-    Write-Host "Proxy MCP accesible en http://localhost:$Port$HealthPath." -ForegroundColor Green
-    Write-Host "Código HTTP: $($response.StatusCode)" -ForegroundColor Green
+    $response = Invoke-WebRequest -Uri "http://localhost:$Port$HealthPath" -Method Get -TimeoutSec 10
+    if ($response.StatusCode -eq 200) {
+        Write-Host "Proxy MCP accesible en http://localhost:$Port$HealthPath." -ForegroundColor Green
+        Write-Host "Código HTTP: $($response.StatusCode)" -ForegroundColor Green
+    } else {
+        Write-Host "Proxy MCP accesible en http://localhost:$Port$HealthPath con código inesperado: $($response.StatusCode)." -ForegroundColor Yellow
+    }
 } catch {
-    # Si cualquier código 4xx/5xx, al menos la conexión funciona
-    $statusCode = $_.Exception.Response.StatusCode.Value__
-    if ($statusCode -ge 400 -and $statusCode -lt 600) {
-        Write-Host "Proxy MCP accesible en http://localhost:$Port$HealthPath (HTTP $statusCode)." -ForegroundColor Green
+    if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+        $statusCode = $_.Exception.Response.StatusCode.Value__
+        Write-Host "Fallo en la verificación de salud del proxy en http://localhost:$Port$HealthPath (HTTP $statusCode)." -ForegroundColor Red
+        Write-Host $_.Exception.Message -ForegroundColor Yellow
     } else {
         Write-Host "No se pudo conectar al proxy MCP en http://localhost:$Port$HealthPath." -ForegroundColor Red
         Write-Host $_.Exception.Message -ForegroundColor Yellow
-        exit 1
     }
+    exit 1
 }
 
 Write-Host "" -ForegroundColor Cyan

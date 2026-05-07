@@ -13,7 +13,7 @@ El proxy `mcp-superassistant-proxy` usa **`streamableHttp` (Server-Sent Events -
 ❌ SSE NO permite: Cliente ↔ Servidor (RPC bidireccional)
 ```
 
-Por eso `tools/run` falla con: `"Method not found: chrome-devtools-mcp.new_page"`
+Por eso `tools/run` falla con: "Method not found: chrome-devtools-mcp.new_page". La ruta correcta para este proxy es `tools/call`.
 
 ---
 

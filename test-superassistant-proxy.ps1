@@ -54,19 +54,19 @@ try {
     $toolRunPayload = @{
         jsonrpc = "2.0"
         id      = 3
-        method  = "tools/run"
+        method  = "tools/call"
         params  = @{
-            tool  = "chrome-devtools-mcp.new_page"
-            input = @{
+            name      = "chrome-devtools-mcp.new_page"
+            arguments = @{
                 url        = "https://example.com"
                 background = $false
             }
         }
     } | ConvertTo-Json -Depth 10
 
-    Write-Host "Intentando chrome-devtools-mcp.new_page via tools/run..." -ForegroundColor Cyan
+    Write-Host "Intentando chrome-devtools-mcp.new_page via tools/call..." -ForegroundColor Cyan
     $runResponse = Invoke-RestMethod -Method Post -Uri $McpUrl -Headers $commonHeaders -ContentType "application/json" -Body $toolRunPayload -TimeoutSec 40
-    Write-Host "tools/run OK." -ForegroundColor Green
+    Write-Host "tools/call OK." -ForegroundColor Green
 
     $result = [PSCustomObject]@{
         timestamp         = (Get-Date).ToString('o')

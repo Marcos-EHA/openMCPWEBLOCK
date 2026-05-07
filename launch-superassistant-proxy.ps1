@@ -36,7 +36,8 @@ $proxyArgs = @(
     "@srbhptl39/mcp-superassistant-proxy@latest",
     "--config", $ConfigPath,
     "--port", "$Port",
-    "--outputTransport", $OutputTransport
+    "--outputTransport", $OutputTransport,
+    "--healthEndpoint", "/healthz"
 )
 
 Write-Host "Iniciando proxy..." -ForegroundColor Yellow
@@ -57,22 +58,20 @@ if ($process.HasExited) {
     exit 1
 }
 
-Write-Host "Proceso activo (PID $($process.Id)). Ejecutando probe MCP..." -ForegroundColor Green
+Write-Host "Proceso activo (PID $($process.Id)). Ejecutando probe de salud..." -ForegroundColor Green
 
-$probeUrl = "http://localhost:$Port/mcp"
+$probeUrl = "http://localhost:$Port/healthz"
 try {
     $response = Invoke-WebRequest -Uri $probeUrl -Method GET -TimeoutSec 10
-    Write-Host "Probe MCP OK: $($response.StatusCode) $probeUrl" -ForegroundColor Green
-} catch {
-    $statusCode = $null
-    if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
-        $statusCode = [int]$_.Exception.Response.StatusCode
-    }
-
-    if ($statusCode -eq 405) {
-        Write-Host "Probe MCP OK (405 esperado en algunos servidores): $probeUrl" -ForegroundColor Green
+    if ($response.StatusCode -eq 200) {
+        Write-Host "Probe de salud OK: $($response.StatusCode) $probeUrl" -ForegroundColor Green
     } else {
-        Write-Host "Probe MCP fallo en $probeUrl. Revisa firewall/puerto/logs." -ForegroundColor Yellow
+        Write-Host "Probe de salud respondió con estado inesperado: $($response.StatusCode) $probeUrl" -ForegroundColor Yellow
+    }
+} catch {
+    Write-Host "Probe de salud falló en $probeUrl. Revisa firewall/puerto/logs." -ForegroundColor Yellow
+    if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+        Write-Host "Código HTTP: $([int]$_.Exception.Response.StatusCode)" -ForegroundColor Yellow
     }
 }
 

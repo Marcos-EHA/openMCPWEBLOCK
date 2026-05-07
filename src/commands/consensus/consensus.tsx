@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Box, Text } from 'ink'
+import { Box, Text } from '../../ink.js'
 import { getTaskOrchestrator, type ConsensusTask, type AgentConfig } from '../../services/consensus/TaskOrchestrator.js'
 import { getConsensusEngine } from '../../services/consensus/ConsensusEngine.js'
 

@@ -6,11 +6,13 @@ import { useMcpToggleEnabled } from '../../services/mcp/MCPConnectionManager.js'
 import { useAppState } from '../../state/AppState.js';
 import type { LocalJSXCommandOnDone } from '../../types/command.js';
 import { PluginSettings } from '../plugin/PluginSettings.js';
-import { getMcpModeComposition } from '../../tools.js';
-import type { McpExecutionMode } from '../../utils/config.js';
-import { getCurrentProjectConfig, saveCurrentProjectConfig } from '../../utils/config.js';
+import { WebModelSelector } from '../../components/WebModelSelector.js';
+import { getWebPlatformById } from '../../utils/webPlatforms.js';
+import { saveCurrentProjectConfig, getCurrentProjectConfig } from '../../utils/config.js';
 import { getConfiguredMcpServerNames, getMcpConfigByName } from '../../services/mcp/config.js';
 import { validateMcpModeConnectivity } from '../../services/mcp/client.js';
+import path from 'path';
+import { spawn } from 'child_process';
 
 // TODO: This is a hack to get the context value from toggleMcpServer (useContext only works in a component)
 // Ideally, all MCP state and functions would be in global state.
@@ -65,11 +67,70 @@ function _temp2(c: any) {
 function _temp(s: any) {
   return s.mcp.clients;
 }
+function MCPSetWebMode({ onComplete }: { onComplete: (message: string) => void }) {
+  const [selectedPlatform, setSelectedPlatform] = React.useState<string | null>(null);
+
+  if (!selectedPlatform) {
+    return (
+      <WebModelSelector
+        onSelect={(platformId) => {
+          setSelectedPlatform(platformId);
+        }}
+        onCancel={() => onComplete('Web mode setup cancelled')}
+      />
+    );
+  }
+
+  // Once platform is selected, save config and open web page
+  React.useEffect(() => {
+    if (!selectedPlatform) {
+      return;
+    }
+
+    const openSelectedPlatform = async () => {
+      saveCurrentProjectConfig(config => ({
+        ...config,
+        mcpExecutionMode: 'web' as const,
+        selectedWebPlatform: selectedPlatform,
+      }));
+
+      const platform = getWebPlatformById(selectedPlatform);
+      if (!platform) {
+        onComplete(`Error: Unknown platform '${selectedPlatform}'`);
+        return;
+      }
+
+      try {
+        const orchestratorPath = path.resolve(process.cwd(), 'mcp-orchestrator.js');
+        const cp = spawn(process.execPath, [orchestratorPath, '--url', platform.url, '--keepAlive'], {
+          cwd: process.cwd(),
+          detached: true,
+          stdio: 'ignore',
+          shell: false,
+        });
+        cp.unref();
+        onComplete(`MCP execution mode set to 'web' with platform '${platform.name}'. Opening ${platform.url}...`);
+      } catch (error: any) {
+        onComplete(`Error launching web relay: ${error?.message ?? String(error)}`);
+      }
+    };
+
+    void openSelectedPlatform();
+  }, [selectedPlatform, onComplete]);
+
+  return null;
+}
 function MCPSetMode({ mode, onComplete }: { mode: 'api' | 'web' | 'auto'; onComplete: (message: string) => void }) {
   const didRun = useRef(false);
   useEffect(() => {
     if (didRun.current) return;
     didRun.current = true;
+
+    if (mode === 'web') {
+      // Web mode is handled by MCPSetWebMode.
+      return;
+    }
+
     saveCurrentProjectConfig(config => ({
       ...config,
       mcpExecutionMode: mode,
@@ -91,6 +152,8 @@ function MCPStatus({ onComplete }: { onComplete: (message: string) => void }) {
       const mode = (config.mcpExecutionMode || 'api') as McpExecutionMode;
       const configuredServerNames = getConfiguredMcpServerNames();
       const activeServerNames = mcpClients.map((client: any) => client.name);
+      const selectedWebPlatformId = config.selectedWebPlatform;
+      const selectedWebPlatform = selectedWebPlatformId ? getWebPlatformById(selectedWebPlatformId) : null;
 
       const serverConfigs = configuredServerNames
         .map(name => [name, getMcpConfigByName(name)] as const)
@@ -104,6 +167,9 @@ function MCPStatus({ onComplete }: { onComplete: (message: string) => void }) {
 
       const lines = [
         `MCP mode: ${mode}`,
+        selectedWebPlatformId
+          ? `Selected web platform: ${selectedWebPlatform ? selectedWebPlatform.name : selectedWebPlatformId}${selectedWebPlatform ? ` (${selectedWebPlatform.url})` : ''}`
+          : `Selected web platform: none`,
         `Configured MCP servers: ${
           configuredServerNames.length > 0
             ? configuredServerNames.join(', ')
@@ -154,7 +220,12 @@ export async function call(onDone: LocalJSXCommandOnDone, _context: unknown, arg
       return <MCPToggle action={parts[0]} target={parts.length > 1 ? parts.slice(1).join(' ') : 'all'} onComplete={onDone} />;
     }
     if (parts[0] === 'set-mode' && parts[1] && ['api', 'web', 'auto'].includes(parts[1])) {
-      return <MCPSetMode mode={parts[1] as 'api' | 'web' | 'auto'} onComplete={onDone} />;
+      const mode = parts[1] as 'api' | 'web' | 'auto';
+      if (mode === 'web') {
+        return <MCPSetWebMode onComplete={onDone} />;
+      } else {
+        return <MCPSetMode mode={mode} onComplete={onDone} />;
+      }
     }
     if (parts[0] === 'status') {
       return <MCPStatus onComplete={onDone} />;

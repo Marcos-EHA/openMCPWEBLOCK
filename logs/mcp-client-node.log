@@ -1,0 +1,151 @@
+=== MCP CLIENT STARTING ===
+Timestamp: 2026-04-30T07:45:47.658Z
+Waiting for MCP process to start...
+[MCP ERROR] spawn npx ENOENT
+=== MCP CLIENT STARTING ===
+Timestamp: 2026-04-30T07:46:13.163Z
+Waiting for MCP process to start...
+
+--- Step 1: Initialize ---
+[SEND #1] initialize
+[STDERR] chrome-devtools-mcp exposes content of the browser instance to the MCP clients allowing them to inspect,
+debug, and modify any data in the browser or DevTools.
+Avoid sharing sensitive or personal information that you do not want to share with MCP clients.
+[STDERR] Performance tools may send trace URLs to the Google CrUX API to fetch real-user experience data. To disable, run with --no-performance-crux.
+
+Google collects usage statistics to improve Chrome DevTools MCP. To opt-out, run with --no-usage-statistics.
+For more details, visit: https://github.com/ChromeDevTools/chrome-devtools-mcp#usage-statistics
+[RECV #1] {"result":{"protocolVersion":"2025-11-25","capabilities":{"logging":{},"tools":{"listChanged":true}}
+[INIT OK] {"result":{"protocolVersion":"2025-11-25","capabilities":{"logging":{},"tools":{"listChanged":true}}
+
+--- Step 2: List Tools ---
+[SEND #2] tools/list
+[RECV #2] {"result":{"tools":[{"name":"click","description":"Clicks on the provided element","inputSchema":{"t
+[LIST OK] Found 29 tools
+
+--- Step 3: Execute new_page ---
+[SEND #3] tools/call
+[RECV #3] {"result":{"content":[{"type":"text","text":"## Pages\n1: about:blank\n2: https://example.com/ [sele
+[TOOL OK] {"result":{"content":[{"type":"text","text":"## Pages\n1: about:blank\n2: https://example.com/ [sele
+
+[SUCCESS] Results saved to c:\Users\apoca\openMCPWEBLOCK\logs\mcp-client-direct.json
+=== MCP CLIENT STARTING ===
+Timestamp: 2026-04-30T14:19:28.430Z
+Waiting for MCP process to start...
+
+--- Step 1: Initialize ---
+[SEND #1] initialize
+[STDERR] chrome-devtools-mcp exposes content of the browser instance to the MCP clients allowing them to inspect,
+debug, and modify any data in the browser or DevTools.
+Avoid sharing sensitive or personal information that you do not want to share with MCP clients.
+[STDERR] Performance tools may send trace URLs to the Google CrUX API to fetch real-user experience data. To disable, run with --no-performance-crux.
+
+Google collects usage statistics to improve Chrome DevTools MCP. To opt-out, run with --no-usage-statistics.
+For more details, visit: https://github.com/ChromeDevTools/chrome-devtools-mcp#usage-statistics
+[RECV #1] {"result":{"protocolVersion":"2025-11-25","capabilities":{"logging":{},"tools":{"listChanged":true}}
+[INIT OK] {"result":{"protocolVersion":"2025-11-25","capabilities":{"logging":{},"tools":{"listChanged":true}}
+
+--- Step 2: List Tools ---
+[SEND #2] tools/list
+[RECV #2] {"result":{"tools":[{"name":"click","description":"Clicks on the provided element","inputSchema":{"t
+[LIST OK] Found 29 tools
+
+--- Step 3: Execute new_page ---
+[SEND #3] tools/call
+[RECV #3] {"result":{"content":[{"type":"text","text":"## Pages\n1: about:blank\n2: https://example.com/ [sele
+[TOOL OK] {"result":{"content":[{"type":"text","text":"## Pages\n1: about:blank\n2: https://example.com/ [sele
+
+[SUCCESS] Results saved to C:\Users\apoca\openMCPWEBLOCK\logs\mcp-client-direct.json
+[2026-04-30T14:22:51.880Z] === MCP CLIENT STARTING ===
+[2026-04-30T14:22:51.889Z] Timestamp: 2026-04-30T14:22:51.889Z
+[2026-04-30T14:22:51.891Z] Target URL: https://chat.openai.com/
+[2026-04-30T14:22:51.893Z] Keep alive: false
+[2026-04-30T14:22:51.895Z] Timeout (s): 10
+[2026-04-30T14:24:09.950Z] === MCP CLIENT STARTING ===
+[2026-04-30T14:24:09.959Z] Timestamp: 2026-04-30T14:24:09.959Z
+[2026-04-30T14:24:09.960Z] Target URL: https://chat.openai.com/
+[2026-04-30T14:24:09.962Z] Keep alive: false
+[2026-04-30T14:24:09.963Z] Timeout (s): 10
+[2026-04-30T14:24:09.974Z] Waiting for MCP process to start...
+[2026-04-30T14:24:09.978Z] [MCP ERROR] spawn npx ENOENT
+[2026-04-30T14:25:27.182Z] === MCP CLIENT STARTING ===
+[2026-04-30T14:25:27.191Z] Timestamp: 2026-04-30T14:25:27.191Z
+[2026-04-30T14:25:27.193Z] Target URL: https://chat.openai.com/
+[2026-04-30T14:25:27.195Z] Keep alive: false
+[2026-04-30T14:25:27.196Z] Timeout (s): 10
+[2026-04-30T14:25:27.198Z] npx command: C:\Program Files\nodejs\npx.cmd
+[2026-04-30T14:26:27.268Z] === MCP CLIENT STARTING ===
+[2026-04-30T14:26:27.277Z] Timestamp: 2026-04-30T14:26:27.277Z
+[2026-04-30T14:26:27.279Z] Target URL: https://chat.openai.com/
+[2026-04-30T14:26:27.281Z] Keep alive: false
+[2026-04-30T14:26:27.283Z] Timeout (s): 10
+[2026-04-30T14:26:27.284Z] npx command: C:\Program Files\nodejs\npx.cmd
+[2026-04-30T14:26:27.317Z] Waiting for MCP process to start...
+[2026-04-30T14:26:27.329Z] [STDERR] "C:\Program" no se reconoce como un comando interno o externo,
+programa o archivo por lotes ejecutable.
+[2026-04-30T14:26:27.339Z] [MCP PROCESS EXIT] code=1 signal=null
+[2026-04-30T14:26:29.329Z] --- Step 1: Initialize ---
+[2026-04-30T14:26:29.332Z] [SEND #1] initialize
+[2026-04-30T14:26:29.334Z] [FATAL] Error [ERR_STREAM_DESTROYED]: Cannot call write after a stream was destroyed
+    at _write (node:internal/streams/writable:489:11)
+    at Writable.write (node:internal/streams/writable:508:10)
+    at file:///C:/Users/apoca/openMCPWEBLOCK/mcp-client-node.js:88:22
+    at new Promise (<anonymous>)
+    at sendMessage (file:///C:/Users/apoca/openMCPWEBLOCK/mcp-client-node.js:82:10)
+    at main (file:///C:/Users/apoca/openMCPWEBLOCK/mcp-client-node.js:147:28)
+[2026-04-30T14:26:54.003Z] === MCP CLIENT STARTING ===
+[2026-04-30T14:26:54.012Z] Timestamp: 2026-04-30T14:26:54.012Z
+[2026-04-30T14:26:54.014Z] Target URL: https://chat.openai.com/
+[2026-04-30T14:26:54.015Z] Keep alive: false
+[2026-04-30T14:26:54.017Z] Timeout (s): 10
+[2026-04-30T14:26:54.019Z] npx command: npx
+[2026-04-30T14:26:54.048Z] Waiting for MCP process to start...
+[2026-04-30T14:26:56.059Z] --- Step 1: Initialize ---
+[2026-04-30T14:26:56.061Z] [SEND #1] initialize
+[2026-04-30T14:27:00.108Z] [STDERR] chrome-devtools-mcp exposes content of the browser instance to the MCP clients allowing them to inspect,
+debug, and modify any data in the browser or DevTools.
+Avoid sharing sensitive or personal information that you do not want to share with MCP clients.
+[2026-04-30T14:27:00.111Z] [STDERR] Performance tools may send trace URLs to the Google CrUX API to fetch real-user experience data. To disable, run with --no-performance-crux.
+
+Google collects usage statistics to improve Chrome DevTools MCP. To opt-out, run with --no-usage-statistics.
+For more details, visit: https://github.com/ChromeDevTools/chrome-devtools-mcp#usage-statistics
+[2026-04-30T14:27:00.127Z] [RECV #1] {"result":{"protocolVersion":"2025-11-25","capabilities":{"logging":{},"tools":{"listChanged":true}}
+[2026-04-30T14:27:00.129Z] [INIT OK] {"result":{"protocolVersion":"2025-11-25","capabilities":{"logging":{},"tools":{"listChanged":true}},"serverInfo":{"name
+[2026-04-30T14:27:00.130Z] --- Step 2: List Tools ---
+[2026-04-30T14:27:00.131Z] [SEND #2] tools/list
+[2026-04-30T14:27:00.150Z] [RECV #2] {"result":{"tools":[{"name":"click","description":"Clicks on the provided element","inputSchema":{"t
+[2026-04-30T14:27:00.151Z] [LIST OK] Found 29 tools
+[2026-04-30T14:27:00.152Z] --- Step 3: Execute new_page ---
+[2026-04-30T14:27:00.154Z] [SEND #3] tools/call
+[2026-04-30T14:27:00.379Z] [RECV #3] {"result":{"content":[{"type":"text","text":"The browser is already running for C:\\Users\\marco\\.c
+[2026-04-30T14:27:00.380Z] [TOOL OK] {"result":{"content":[{"type":"text","text":"The browser is already running for C:\\Users\\marco\\.cache\\chrome-devtool
+[2026-04-30T14:27:00.383Z] [SUCCESS] Results saved to C:\Users\apoca\openMCPWEBLOCK\logs\mcp-client-direct.json
+[2026-04-30T14:27:00.385Z] Waiting 10s before shutdown.
+[2026-04-30T14:27:26.182Z] === MCP CLIENT STARTING ===
+[2026-04-30T14:27:26.197Z] Timestamp: 2026-04-30T14:27:26.197Z
+[2026-04-30T14:27:26.199Z] Target URL: https://chat.openai.com/
+[2026-04-30T14:27:26.200Z] Keep alive: true
+[2026-04-30T14:27:26.201Z] Timeout (s): 0
+[2026-04-30T14:27:26.203Z] npx command: npx
+[2026-04-30T14:27:26.232Z] Waiting for MCP process to start...
+[2026-04-30T14:27:28.242Z] --- Step 1: Initialize ---
+[2026-04-30T14:27:28.245Z] [SEND #1] initialize
+[2026-04-30T14:27:31.314Z] [STDERR] chrome-devtools-mcp exposes content of the browser instance to the MCP clients allowing them to inspect,
+debug, and modify any data in the browser or DevTools.
+Avoid sharing sensitive or personal information that you do not want to share with MCP clients.
+[2026-04-30T14:27:31.316Z] [STDERR] Performance tools may send trace URLs to the Google CrUX API to fetch real-user experience data. To disable, run with --no-performance-crux.
+
+Google collects usage statistics to improve Chrome DevTools MCP. To opt-out, run with --no-usage-statistics.
+For more details, visit: https://github.com/ChromeDevTools/chrome-devtools-mcp#usage-statistics
+[2026-04-30T14:27:31.327Z] [RECV #1] {"result":{"protocolVersion":"2025-11-25","capabilities":{"logging":{},"tools":{"listChanged":true}}
+[2026-04-30T14:27:31.328Z] [INIT OK] {"result":{"protocolVersion":"2025-11-25","capabilities":{"logging":{},"tools":{"listChanged":true}},"serverInfo":{"name
+[2026-04-30T14:27:31.328Z] --- Step 2: List Tools ---
+[2026-04-30T14:27:31.329Z] [SEND #2] tools/list
+[2026-04-30T14:27:31.347Z] [RECV #2] {"result":{"tools":[{"name":"click","description":"Clicks on the provided element","inputSchema":{"t
+[2026-04-30T14:27:31.348Z] [LIST OK] Found 29 tools
+[2026-04-30T14:27:33.209Z] --- Step 3: Execute new_page ---
+[2026-04-30T14:27:33.211Z] [SEND #3] tools/call
+[2026-04-30T14:27:33.508Z] [RECV #3] {"result":{"content":[{"type":"text","text":"The browser is already running for C:\\Users\\marco\\.c
+[2026-04-30T14:27:33.509Z] [TOOL OK] {"result":{"content":[{"type":"text","text":"The browser is already running for C:\\Users\\marco\\.cache\\chrome-devtool
+[2026-04-30T14:27:33.513Z] [SUCCESS] Results saved to C:\Users\apoca\openMCPWEBLOCK\logs\mcp-client-direct.json
+[2026-04-30T14:27:33.514Z] Keep-alive enabled. MCP client will continue running until interrupted.

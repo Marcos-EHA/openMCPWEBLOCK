@@ -1,0 +1,26 @@
+
+[1mclaude-mem[22m v12.4.8 — persistent memory for AI coding assistants
+
+[1mInstall Commands[22m (no Bun required):
+  [36mnpx claude-mem[39m                     Interactive install
+  [36mnpx claude-mem install[39m              Interactive install
+  [36mnpx claude-mem install --ide <id>[39m   Install for specific IDE
+  [36mnpx claude-mem update[39m               Update to latest version
+  [36mnpx claude-mem uninstall[39m            Remove plugin and configs
+  [36mnpx claude-mem version[39m              Print version
+
+[1mRuntime Commands[22m (requires Bun, delegates to installed plugin):
+  [36mnpx claude-mem start[39m                Start worker service
+  [36mnpx claude-mem stop[39m                 Stop worker service
+  [36mnpx claude-mem restart[39m              Restart worker service
+  [36mnpx claude-mem status[39m               Show worker status
+  [36mnpx claude-mem search <query>[39m       Search observations
+  [36mnpx claude-mem adopt [--dry-run] [--branch <name>][39m    Stamp merged worktrees into parent project
+  [36mnpx claude-mem cleanup [--dry-run][39m    Run one-time v12.4.3 pollution cleanup (or preview counts)
+  [36mnpx claude-mem transcript watch[39m     Start transcript watcher
+
+[1mIDE Identifiers[22m:
+  claude-code, cursor, gemini-cli, opencode, openclaw,
+  windsurf, codex-cli, copilot-cli, antigravity, goose,
+  crush, roo-code, warp
+

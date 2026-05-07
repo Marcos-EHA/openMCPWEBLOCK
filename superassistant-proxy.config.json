@@ -6,12 +6,16 @@
         "-y",
         "@modelcontextprotocol/server-filesystem",
         "C:\\Users\\apoca\\openMCPWEBLOCK"
-      ]    },
+      ]
+    },
     "chrome-devtools-mcp": {
       "command": "npx",
       "args": [
         "-y",
-        "chrome-devtools-mcp"
-      ]    }
+        "chrome-devtools-mcp",
+        "--port",
+        "9222"
+      ]
+    }
   }
 }

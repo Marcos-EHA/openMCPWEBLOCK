@@ -1,0 +1,19 @@
+[2026-05-04T00:32:11.146Z] === MCP ORCHESTRATOR STARTING ===
+[2026-05-04T00:32:11.160Z] Target URL: https://chat.openai.com
+[2026-05-04T00:32:11.163Z] Keep alive: true
+[2026-05-04T00:32:11.165Z] npx command: npx
+[2026-05-04T00:32:13.207Z] Initializing MCP session...
+[2026-05-04T00:32:19.921Z] [STDERR] chrome-devtools-mcp exposes content of the browser instance to the MCP clients allowing them to inspect,
+debug, and modify any data in the browser or DevTools.
+Avoid sharing sensitive or personal information that you do not want to share with MCP clients.
+[2026-05-04T00:32:19.944Z] [RECV #1] SUCCESS
+[2026-05-04T00:32:19.949Z] MCP initialize complete.
+[2026-05-04T00:32:19.951Z] Listing MCP tools...
+[2026-05-04T00:32:19.982Z] [RECV #2] SUCCESS
+[2026-05-04T00:32:19.986Z] Found 29 tools.
+[2026-05-04T00:32:19.988Z] Opening browser page: https://chat.openai.com
+[2026-05-04T00:32:25.697Z] [RECV #3] SUCCESS
+[2026-05-04T00:32:25.701Z] Browser page opened.
+[2026-05-04T00:32:25.706Z] Saved orchestrator result to C:\Users\apoca\openMCPWEBLOCK\logs\mcp-orchestrator-result.json
+[2026-05-04T00:32:25.713Z] Session ready. Send JSON commands via stdin or use Ctrl+C to stop.
+[2026-05-04T00:32:40.797Z] [STDERR] ^C
