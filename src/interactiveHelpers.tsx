@@ -108,12 +108,43 @@ export async function showSetupScreens(root: Root, permissionMode: PermissionMod
     return false;
   }
 
+  // Web mode: skip Anthropic onboarding entirely — no API key or OAuth needed.
+  // The user connects to ChatGPT/Gemini via browser, not Anthropic API.
+  const { getCurrentProjectConfig, saveCurrentProjectConfig } = await import('./utils/config.js');
+  const projectConfig = getCurrentProjectConfig();
+  let isWebMode = projectConfig.mcpExecutionMode === 'web' && !!projectConfig.selectedWebPlatform;
+
   const usesAnthropicSetup = usesAnthropicAccountFlow();
   const config = getGlobalConfig();
   let onboardingShown = false;
 
-  // Skip onboarding dialog for third-party providers (no Anthropic account needed)
-  if (usesAnthropicSetup && (!config.theme || !config.hasCompletedOnboarding) // always show onboarding at least once
+  // FIRST SCREEN: If no mode has been configured yet, show the Mode Selector
+  if (!config.hasCompletedOnboarding && !isWebMode) {
+    const { ModeSelector } = await import('./components/ModeSelector/ModeSelector.js');
+    const modeResult = await showSetupDialog<{ mode: 'web' | 'api'; platformId?: string }>(
+      root,
+      done => <ModeSelector onDone={done} />,
+      { onChangeAppState }
+    );
+
+    if (modeResult.mode === 'web' && modeResult.platformId) {
+      // Save web mode config
+      saveCurrentProjectConfig(cfg => ({
+        ...cfg,
+        mcpExecutionMode: 'web' as const,
+        selectedWebPlatform: modeResult.platformId!,
+      }));
+      isWebMode = true;
+      // Auto-complete onboarding — no API setup needed
+      completeOnboarding();
+    }
+    // If API was chosen, fall through to normal Anthropic onboarding below
+  }
+
+  // Skip onboarding dialog for:
+  // - third-party providers (no Anthropic account needed)
+  // - web mode (uses browser-based AI, not Anthropic API)
+  if (!isWebMode && usesAnthropicSetup && (!config.theme || !config.hasCompletedOnboarding) // always show onboarding at least once
   ) {
     onboardingShown = true;
     const {
@@ -125,6 +156,9 @@ export async function showSetupScreens(root: Root, permissionMode: PermissionMod
     }} />, {
       onChangeAppState
     });
+  } else if (isWebMode && !config.hasCompletedOnboarding) {
+    // Auto-complete onboarding for web mode users
+    completeOnboarding();
   }
 
   // Always show the trust dialog in interactive sessions, regardless of permission mode.
@@ -134,9 +168,9 @@ export async function showSetupScreens(root: Root, permissionMode: PermissionMod
   // Note: non-interactive sessions (CI/CD with -p) never reach showSetupScreens at all.
   // Skip permission checks in claubbit
   if (!isEnvTruthy(process.env.CLAUBBIT)) {
-    // Skip trust dialog UI for third-party providers (no Anthropic auth), but still
-    // run trust state initialization below so the REPL mounts correctly.
-    if (usesAnthropicSetup && !checkHasTrustDialogAccepted()) {
+    // Skip trust dialog UI for third-party providers (no Anthropic auth) and web mode.
+    // Web mode connects to ChatGPT/Gemini directly — no Anthropic trust needed.
+    if (!isWebMode && usesAnthropicSetup && !checkHasTrustDialogAccepted()) {
       const {
         TrustDialog
       } = await import('./components/TrustDialog/TrustDialog.js');
@@ -209,10 +243,10 @@ export async function showSetupScreens(root: Root, permissionMode: PermissionMod
     }
   }
 
-  // Check for custom API key
+  // Check for custom API key (skip in web mode — no Anthropic API used)
   // On homespace, ANTHROPIC_API_KEY is preserved in process.env for child
   // processes but ignored by Claude Code itself (see auth.ts).
-  if (process.env.ANTHROPIC_API_KEY && !isRunningOnHomespace()) {
+  if (!isWebMode && process.env.ANTHROPIC_API_KEY && !isRunningOnHomespace()) {
     const customApiKeyTruncated = normalizeApiKeyForConfig(process.env.ANTHROPIC_API_KEY);
     const keyStatus = getCustomApiKeyStatus(customApiKeyTruncated);
     if (keyStatus === 'new') {

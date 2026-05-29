@@ -11,8 +11,8 @@ import { getWebPlatformById } from '../../utils/webPlatforms.js';
 import { saveCurrentProjectConfig, getCurrentProjectConfig } from '../../utils/config.js';
 import { getConfiguredMcpServerNames, getMcpConfigByName } from '../../services/mcp/config.js';
 import { validateMcpModeConnectivity } from '../../services/mcp/client.js';
-import path from 'path';
-import { spawn } from 'child_process';
+
+
 
 // TODO: This is a hack to get the context value from toggleMcpServer (useContext only works in a component)
 // Ideally, all MCP state and functions would be in global state.
@@ -81,41 +81,30 @@ function MCPSetWebMode({ onComplete }: { onComplete: (message: string) => void }
     );
   }
 
-  // Once platform is selected, save config and open web page
+  // Once platform is selected, save config — WebRelayProvider handles Chrome/SA/MCP on first query
   React.useEffect(() => {
     if (!selectedPlatform) {
       return;
     }
 
-    const openSelectedPlatform = async () => {
-      saveCurrentProjectConfig(config => ({
-        ...config,
-        mcpExecutionMode: 'web' as const,
-        selectedWebPlatform: selectedPlatform,
-      }));
+    saveCurrentProjectConfig(config => ({
+      ...config,
+      mcpExecutionMode: 'web' as const,
+      selectedWebPlatform: selectedPlatform,
+    }));
 
-      const platform = getWebPlatformById(selectedPlatform);
-      if (!platform) {
-        onComplete(`Error: Unknown platform '${selectedPlatform}'`);
-        return;
-      }
+    const platform = getWebPlatformById(selectedPlatform);
+    if (!platform) {
+      onComplete(`Error: Unknown platform '${selectedPlatform}'`);
+      return;
+    }
 
-      try {
-        const orchestratorPath = path.resolve(process.cwd(), 'mcp-orchestrator.js');
-        const cp = spawn(process.execPath, [orchestratorPath, '--url', platform.url, '--keepAlive'], {
-          cwd: process.cwd(),
-          detached: true,
-          stdio: 'ignore',
-          shell: false,
-        });
-        cp.unref();
-        onComplete(`MCP execution mode set to 'web' with platform '${platform.name}'. Opening ${platform.url}...`);
-      } catch (error: any) {
-        onComplete(`Error launching web relay: ${error?.message ?? String(error)}`);
-      }
-    };
-
-    void openSelectedPlatform();
+    onComplete(
+      `✅ Web mode activated with ${platform.name}\n` +
+      `   Next message will launch Chrome + SA → ${platform.url}\n` +
+      `   MCP server on :9334 with all tools via StreamableHTTP\n` +
+      `   Use /mcp set-mode api to switch back to API mode`
+    );
   }, [selectedPlatform, onComplete]);
 
   return null;

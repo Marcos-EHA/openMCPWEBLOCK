@@ -182,12 +182,67 @@ function boxRow(content: string, width: number, rawLen: number): string {
   return `${rgb(...BORDER)}\u2502${RESET}${content}${' '.repeat(pad)}${rgb(...BORDER)}\u2502${RESET}`
 }
 
+// ─── Web mode detection ───────────────────────────────────────────────────────
+
+// Mode colors
+const WEB_COLOR: RGB = [100, 150, 255]    // Blue for web mode
+const API_COLOR: RGB = [240, 148, 100]    // Orange for API mode (= ACCENT)
+const LOCAL_COLOR: RGB = [130, 175, 130]  // Green for local mode
+
+// Web platform model mapping (what model each platform typically runs)
+const WEB_PLATFORM_MODELS: Record<string, { model: string; icon: string }> = {
+  chatgpt: { model: 'GPT-4o', icon: '🤖' },
+  gemini: { model: 'Gemini 2.5 Pro', icon: '✦' },
+  grok: { model: 'Grok 3', icon: '⚡' },
+  perplexity: { model: 'Sonar Pro', icon: '🔍' },
+  deepseek: { model: 'DeepSeek V3', icon: '🧠' },
+  claude: { model: 'Claude Sonnet', icon: '🎭' },
+  copilot: { model: 'GPT-4o', icon: '🪟' },
+}
+
+interface WebModeInfo {
+  isWebMode: boolean
+  platformId: string
+  platformName: string
+  platformModel: string
+  platformUrl: string
+  platformIcon: string
+}
+
+function detectWebMode(): WebModeInfo | null {
+  try {
+    const { readFileSync } = require('fs')
+    const { join } = require('path')
+    const configPath = join(process.cwd(), '.claude', 'config.json')
+    const config = JSON.parse(readFileSync(configPath, 'utf-8'))
+    if (config.mcpExecutionMode === 'web' && config.selectedWebPlatform) {
+      const id = config.selectedWebPlatform
+      const platformInfo = WEB_PLATFORM_MODELS[id] || { model: 'Unknown', icon: '🌐' }
+      // Try to get platform name from webPlatforms
+      const { WEB_PLATFORMS } = require('../utils/webPlatforms.js')
+      const platform = WEB_PLATFORMS?.find?.((p: any) => p.id === id)
+      return {
+        isWebMode: true,
+        platformId: id,
+        platformName: platform?.name || id,
+        platformModel: platformInfo.model,
+        platformUrl: platform?.url || '',
+        platformIcon: platformInfo.icon,
+      }
+    }
+  } catch {
+    // Config not found or not in web mode
+  }
+  return null
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export function printStartupScreen(modelOverride?: string): void {
   // Skip in non-interactive / CI / print mode
   if (process.env.CI || !process.stdout.isTTY) return
 
+  const webMode = detectWebMode()
   const p = detectProvider(modelOverride)
   const W = 62
   const out: string[] = []
@@ -220,21 +275,35 @@ export function printStartupScreen(modelOverride?: string): void {
     return [` ${DIM}${rgb(...DIMCOL)}${padK}${RESET} ${rgb(...c)}${v}${RESET}`, ` ${padK} ${v}`.length]
   }
 
-  const provC: RGB = p.isLocal ? [130, 175, 130] : ACCENT
-  let [r, l] = lbl('Provider', p.name, provC)
-  out.push(boxRow(r, W, l))
-  ;[r, l] = lbl('Model', p.model)
-  out.push(boxRow(r, W, l))
-  const ep = p.baseUrl.length > 38 ? p.baseUrl.slice(0, 35) + '...' : p.baseUrl
-  ;[r, l] = lbl('Endpoint', ep)
-  out.push(boxRow(r, W, l))
+  if (webMode) {
+    // ─── Web mode: same structure, different values ───
+    const mC = WEB_COLOR
+    let [r, l] = lbl('Mode', `Web \u{1F310}`, mC)
+    out.push(boxRow(r, W, l + 1))
+    ;[r, l] = lbl('Model', `${webMode.platformModel} (${webMode.platformName})`, CREAM)
+    out.push(boxRow(r, W, l))
+    ;[r, l] = lbl('Endpoint', webMode.platformUrl || `${webMode.platformName.toLowerCase()}.com`)
+    out.push(boxRow(r, W, l))
+  } else {
+    // ─── API / Local mode ───
+    const modeColor: RGB = p.isLocal ? LOCAL_COLOR : API_COLOR
+    const modeName = p.isLocal ? `Local \u{1F4BB}` : `API \u{1F511}`
+    let [r, l] = lbl('Mode', modeName, modeColor)
+    out.push(boxRow(r, W, l + 1))
+    ;[r, l] = lbl('Model', p.model, CREAM)
+    out.push(boxRow(r, W, l))
+    const ep = p.baseUrl.length > 38 ? p.baseUrl.slice(0, 35) + '...' : p.baseUrl
+    ;[r, l] = lbl('Endpoint', ep)
+    out.push(boxRow(r, W, l))
+  }
 
   out.push(`${rgb(...BORDER)}\u2560${'\u2550'.repeat(W - 2)}\u2563${RESET}`)
 
-  const sC: RGB = p.isLocal ? [130, 175, 130] : ACCENT
-  const sL = p.isLocal ? 'local' : 'cloud'
-  const sRow = ` ${rgb(...sC)}\u25cf${RESET} ${DIM}${rgb(...DIMCOL)}${sL}${RESET}    ${DIM}${rgb(...DIMCOL)}Ready \u2014 type ${RESET}${rgb(...ACCENT)}/help${RESET}${DIM}${rgb(...DIMCOL)} to begin${RESET}`
-  const sLen = ` \u25cf ${sL}    Ready \u2014 type /help to begin`.length
+  // Status row — ● estado with color: green=ok, orange=waiting, red=error
+  // Color reflects current connection health, not mode type
+  const sC: RGB = [100, 200, 100] // Green = ready (TODO: dynamic based on actual connection)
+  const sRow = ` ${rgb(...sC)}\u25cf${RESET} ${DIM}${rgb(...DIMCOL)}estado${RESET}  ${DIM}${rgb(...DIMCOL)}Ready \u2014 type ${RESET}${rgb(...ACCENT)}/help${RESET}${DIM}${rgb(...DIMCOL)} to begin${RESET}`
+  const sLen = ` \u25cf estado  Ready \u2014 type /help to begin`.length
   out.push(boxRow(sRow, W, sLen))
 
   out.push(`${rgb(...BORDER)}\u255a${'\u2550'.repeat(W - 2)}\u255d${RESET}`)

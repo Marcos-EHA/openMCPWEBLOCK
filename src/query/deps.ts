@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto'
 import { queryModelWithStreaming } from '../services/api/claude.js'
 import { autoCompactIfNeeded } from '../services/compact/autoCompact.js'
 import { microcompactMessages } from '../services/compact/microCompact.js'
+import { webRelayCallModel, isWebRelayModeActive } from '../services/webRelay/WebRelayProvider.js'
 
 // -- deps
 
@@ -31,8 +32,12 @@ export type QueryDeps = {
 }
 
 export function productionDeps(): QueryDeps {
+  const useWebRelay = isWebRelayModeActive()
+
   return {
-    callModel: queryModelWithStreaming,
+    callModel: useWebRelay
+      ? (webRelayCallModel as unknown as typeof queryModelWithStreaming)
+      : queryModelWithStreaming,
     microcompact: microcompactMessages,
     autocompact: autoCompactIfNeeded,
     uuid: randomUUID,

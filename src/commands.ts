@@ -36,6 +36,7 @@ import breakCache from './commands/break-cache/index.js'
 import cacheProbe from './commands/cache-probe/index.js'
 import cacheStats from './commands/cacheStats/index.js'
 import mcp from './commands/mcp/index.js'
+import mode from './commands/mode/index.js'
 import consensus from './commands/consensus/index.js'
 import mobile from './commands/mobile/index.js'
 import onboarding from './commands/onboarding/index.js'
@@ -303,6 +304,7 @@ const COMMANDS = memoize((): Command[] => [
   consensus,
   memory,
   mobile,
+  mode(),
   model,
   onboardGithub,
   outputStyle,

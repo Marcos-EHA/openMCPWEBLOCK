@@ -39,7 +39,11 @@ type PromptCharProps = {
 
 /**
  * Renders the prompt character (❯).
- * Teammate color overrides the default color when set.
+ * Color reflects the active mode:
+ * - Web mode: blue (#6496FF)
+ * - API mode: default (orange/cream from theme)
+ * - Local mode: green
+ * Teammate color overrides when set.
  */
 function PromptChar(t0) {
   const $ = _c(3);
@@ -48,7 +52,22 @@ function PromptChar(t0) {
     themeColor
   } = t0;
   const teammateColor = themeColor;
-  const color = teammateColor ?? (false ? "subtle" : undefined);
+  // Mode-based color: web=blue, local=green, api=default
+  let modeColor: string | undefined;
+  if (!teammateColor) {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const configPath = path.join(process.cwd(), '.claude', 'config.json');
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      if (config.mcpExecutionMode === 'web') {
+        modeColor = '#6496FF'; // Blue for web
+      }
+    } catch {
+      // Not in web mode or config not found
+    }
+  }
+  const color = teammateColor ?? modeColor ?? (false ? "subtle" : undefined);
   let t1;
   if ($[0] !== color || $[1] !== isLoading) {
     t1 = <Text color={color} dimColor={isLoading}>{figures.pointer} </Text>;
