@@ -33,7 +33,7 @@ import { getManagedFilePath } from './settings/managedPath.js'
 import type { ThemeSetting } from './theme.js'
 import { PRIMARY_PROJECT_INSTRUCTION_FILE } from './projectInstructions.js'
 
-export type McpExecutionMode = 'api' | 'web' | 'auto'
+export type McpExecutionMode = 'api' | 'web' | 'auto' | 'local'
 export const DEFAULT_MCP_EXECUTION_MODE: McpExecutionMode = 'api'
 
 /* eslint-disable @typescript-eslint/no-require-imports */

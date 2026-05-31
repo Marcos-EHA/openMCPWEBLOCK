@@ -40,7 +40,7 @@ function ModeCommand({ onDone }: { onDone: (msg: string) => void }): React.React
               { label: 'API 🔑 — Claude, OpenAI via API key', value: 'api' },
               { label: 'Local 💻 — Ollama, LM Studio local models', value: 'local' },
             ]}
-            onChange={(value) => {
+            onChange={(value: string) => {
               if (value === 'web') {
                 setStep('select-platform')
               } else {
@@ -77,7 +77,7 @@ function ModeCommand({ onDone }: { onDone: (msg: string) => void }): React.React
               label: `${p.name} — ${WEB_PLATFORM_MODELS[p.id] || 'AI'} (${p.url})`,
               value: p.id,
             }))}
-            onChange={(platformId) => {
+            onChange={(platformId: string) => {
               saveCurrentProjectConfig(cfg => ({
                 ...cfg,
                 mcpExecutionMode: 'web' as const,
