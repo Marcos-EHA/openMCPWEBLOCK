@@ -12,6 +12,9 @@ import { getCurrentSessionTitle } from '../../utils/sessionStorage.js';
 import { buildAccountProperties, buildAPIProviderProperties, buildIDEProperties, buildInstallationDiagnostics, buildInstallationHealthDiagnostics, buildMcpProperties, buildMemoryDiagnostics, buildSandboxProperties, buildSettingSourcesProperties, type Diagnostic, getModelDisplayLabel, type Property } from '../../utils/status.js';
 import type { ThemeName } from '../../utils/theme.js';
 import { ConfigurableShortcutHint } from '../ConfigurableShortcutHint.js';
+import { useOrchestratorState } from '../../hooks/useOrchestratorState.js';
+import type { AppState as OrchestrationAppState } from '../../services/webRelay/orchestration/AppState.js';
+import type { AgentLifecycleStatus } from '../../services/webRelay/orchestration/types.js';
 type Props = {
   context: LocalJSXCommandContext;
   diagnosticsPromise: Promise<Diagnostic[]>;
@@ -99,6 +102,123 @@ function PropertyValue(t0) {
   }
   return value;
 }
+
+export function getLifecycleColor(status: AgentLifecycleStatus): string | undefined {
+  switch (status) {
+    case 'ready':
+      return 'green';
+    case 'lost':
+      return 'magenta';
+    case 'error':
+      return 'red';
+    case 'stopping':
+    case 'stopped':
+      return undefined;
+    case 'created':
+    case 'starting':
+    case 'chrome_ready':
+    case 'session_ready':
+    case 'extension_loading':
+    case 'service_worker_ready':
+    case 'mcp_ready':
+    case 'sa_preparing':
+    case 'sa_preparing':
+    case 'restarting':
+    default:
+      return 'yellow';
+  }
+}
+
+export function WebRelayOrchestrationSection({
+  customAppState,
+}: {
+  customAppState?: OrchestrationAppState;
+}): React.ReactNode {
+  const { state } = useOrchestratorState(customAppState);
+  const agents = Object.values(state.agents);
+
+  return (
+    <Box flexDirection="column">
+      <Text bold={true}>Web Relay Orchestration</Text>
+      <Box flexDirection="row" gap={1}>
+        <Text bold={true}>System Health:</Text>
+        <Text
+          color={
+            state.systemHealth?.status === 'healthy'
+              ? 'green'
+              : state.systemHealth?.status === 'degraded'
+                ? 'yellow'
+                : state.systemHealth?.status === 'unhealthy'
+                  ? 'red'
+                  : undefined
+          }
+        >
+          {state.systemHealth?.status ?? 'unknown'}
+        </Text>
+      </Box>
+      <Box flexDirection="row" gap={1}>
+        <Text bold={true}>Sentinel:</Text>
+        {state.sentinel ? (
+          <Text color={state.sentinel.healthy ? 'green' : 'red'}>
+            {state.sentinel.healthy ? 'healthy' : 'issues found'} (
+            {state.sentinel.agentsChecked} checked, {state.sentinel.issuesFound} issues)
+          </Text>
+        ) : (
+          <Text dimColor={true}>not scanned yet</Text>
+        )}
+      </Box>
+      <Box flexDirection="column">
+        <Text bold={true}>Agents ({agents.length}):</Text>
+        {agents.length === 0 ? (
+          <Box paddingLeft={2}>
+            <Text dimColor={true}>No web agents registered</Text>
+          </Box>
+        ) : (
+          agents.map(agent => {
+            const color = getLifecycleColor(agent.status);
+            const isDim = agent.status === 'stopped' || agent.status === 'stopping';
+            const isSelected = state.selectedAgentId === agent.agentId;
+            const relayPage = state.sentinel?.details.find(check => check.agentId === agent.agentId)?.saConfiguration;
+            return (
+              <Box key={agent.agentId} flexDirection="row" gap={1} paddingLeft={2}>
+                <Text bold={isSelected}>
+                  {isSelected ? '▶ ' : '• '}
+                  {agent.agentId} [{agent.platformId}]:
+                </Text>
+                <Text color={color} dimColor={isDim} bold={agent.status === 'ready'}>
+                  {agent.status}
+                </Text>
+                <Text dimColor={true}>
+                  (instance: {agent.instanceId ?? 'none'}, port: {agent.debugPort ?? 'none'})
+                </Text>
+                {relayPage && (
+                  <Text dimColor={true}>
+                    (tab: {relayPage.pageVisibility ?? 'unmeasured'},
+                    {' '}page focus: {relayPage.pageHasFocus === null || relayPage.pageHasFocus === undefined
+                      ? 'unmeasured'
+                      : relayPage.pageHasFocus
+                        ? 'yes'
+                        : 'no'})
+                  </Text>
+                )}
+                {agent.unknownExecutions > 0 && (
+                  <Text color="yellow">[{agent.unknownExecutions} unknown exec]</Text>
+                )}
+              </Box>
+            );
+          })
+        )}
+      </Box>
+      {state.lastError && (
+        <Box flexDirection="row" gap={1}>
+          <Text bold={true} color="error">Last Error:</Text>
+          <Text color="error">{state.lastError}</Text>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
 export function Status(t0) {
   const $ = _c(20);
   const {
@@ -159,7 +279,7 @@ export function Status(t0) {
   }
   let t6;
   if ($[12] !== grow || $[13] !== t4 || $[14] !== t5) {
-    t6 = <Box flexDirection="column" gap={1} flexGrow={grow}>{t4}{t5}</Box>;
+    t6 = <Box flexDirection="column" gap={1} flexGrow={grow}>{t4}<WebRelayOrchestrationSection />{t5}</Box>;
     $[12] = grow;
     $[13] = t4;
     $[14] = t5;

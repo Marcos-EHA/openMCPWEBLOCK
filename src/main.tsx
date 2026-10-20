@@ -2483,6 +2483,17 @@ async function run(): Promise<CommanderCommand> {
     registerCleanup(async () => {
       logForDiagnosticsNoPII('info', 'exited');
     });
+    if (!print) {
+      try {
+        const { initializeApplicationMCPBridge } = await import('./services/mcpServer/ApplicationMCPBridge.js');
+        const bridge = await initializeApplicationMCPBridge();
+        if (bridge.state === 'external') {
+          process.stderr.write('[Conexión] Se usa un puente ya abierto por otro proceso; su cierre se gestiona desde ese proceso.\n');
+        }
+      } catch (error) {
+        process.stderr.write(`[Conexión] No se pudo iniciar el puente local: ${error instanceof Error ? error.message : String(error)}. Abre /mcp y selecciona Conexión con SuperAssistant para reintentar.\n`);
+      }
+    }
     void logTenguInit({
       hasInitialPrompt: Boolean(prompt),
       hasStdin: Boolean(inputPrompt),

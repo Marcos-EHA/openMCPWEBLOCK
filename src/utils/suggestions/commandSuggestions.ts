@@ -1,4 +1,4 @@
-import Fuse from 'fuse.js'
+﻿import Fuse from 'fuse.js'
 import {
   type Command,
   formatDescriptionWithSource,
@@ -125,7 +125,7 @@ export function findMidInputSlashCommand(
 
   // Find the last "/" in the text before cursor
   // Pattern: whitespace followed by "/" then optional alphanumeric/dash characters.
-  // Lookbehind (?<=\s) is avoided — it defeats YARR JIT in JSC, and the
+  // Lookbehind (?<=\s) is avoided â€” it defeats YARR JIT in JSC, and the
   // interpreter scans O(n) even with the $ anchor. Capture the whitespace
   // instead and offset match.index by 1.
   const match = beforeCursor.match(/\s\/([a-zA-Z0-9_:-]*)$/)
@@ -258,6 +258,109 @@ function findMatchedAlias(
   return aliases.find(alias => alias.toLowerCase().startsWith(query))
 }
 
+type McpSuggestionMetadata = {
+  mcpSubcommand: string
+  executeOnAccept: boolean
+}
+
+const MCP_SUBCOMMANDS: Array<{
+  input: string
+  insertInput?: string
+  description: string
+  executeOnAccept: boolean
+}> = [
+  { input: 'status', description: 'Ver estado del puente MCP y de los agentes Web Relay', executeOnAccept: true },
+  { input: 'ask <tarea>', insertInput: 'ask', description: 'Delegar una tarea al coordinador y a las workers Web Relay', executeOnAccept: false },
+  { input: 'sentinel', description: 'Abrir la consola y configuraciÃ³n de Sentinel', executeOnAccept: true },
+  { input: 'recover', description: 'Reconectar instancias Web Relay ya abiertas', executeOnAccept: true },
+  { input: 'lienzo', description: 'Activar o desactivar el panel de colaboracion TUI', executeOnAccept: true },
+  { input: 'workspace', description: 'Iniciar la web UI del workspace en :3007', executeOnAccept: true },
+  { input: 'workspace stop', description: 'Detener la web UI', executeOnAccept: true },
+  { input: 'set-mode api', description: 'Usar herramientas MCP/API', executeOnAccept: true },
+  { input: 'set-mode web', description: 'Configurar y lanzar instancias ChatGPT Web', executeOnAccept: true },
+  { input: 'set-mode auto', description: 'Seleccionar automÃ¡ticamente el modo de ejecuciÃ³n', executeOnAccept: true },
+  { input: 'master-session', description: 'Listar estado de las fuentes de sesiÃ³n Master', executeOnAccept: true },
+  {
+    input: 'master-session add --platform claude [nombre]',
+    insertInput: 'master-session add --platform claude',
+    description: 'Crear un perfil Master Claude; el nombre es opcional',
+    executeOnAccept: false,
+  },
+  {
+    input: 'master-session add --platform zai [nombre]',
+    insertInput: 'master-session add --platform zai',
+    description: 'Crear un perfil Master Z.ai; el nombre es opcional',
+    executeOnAccept: false,
+  },
+  {
+    input: 'master-session add --platform chatx [nombre]',
+    insertInput: 'master-session add --platform chatx',
+    description: 'Crear un perfil Master ChatX; el nombre es opcional',
+    executeOnAccept: false,
+  },
+  {
+    input: 'master-session add [nombre]',
+    insertInput: 'master-session add',
+    description: 'Crear un perfil Master ChatGPT; el nombre es opcional',
+    executeOnAccept: false,
+  },
+  {
+    input: 'master-session open <id>',
+    insertInput: 'master-session open',
+    description: 'Abrir o reutilizar una fuente Master registrada',
+    executeOnAccept: false,
+  },
+  {
+    input: 'master-session status <id>',
+    insertInput: 'master-session status',
+    description: 'Consultar el estado de autenticaciÃ³n de una fuente Master',
+    executeOnAccept: false,
+  },
+  { input: 'enable', description: 'Activar todos los servidores MCP', executeOnAccept: true },
+  { input: 'enable <servidor>', insertInput: 'enable', description: 'Activar un servidor MCP especÃ­fico', executeOnAccept: false },
+  { input: 'disable', description: 'Desactivar todos los servidores MCP', executeOnAccept: true },
+  { input: 'disable <servidor>', insertInput: 'disable', description: 'Desactivar un servidor MCP especÃ­fico', executeOnAccept: false },
+  { input: 'reconnect <servidor>', insertInput: 'reconnect', description: 'Reconectar un servidor MCP especÃ­fico', executeOnAccept: false },
+  { input: 'no-redirect', description: 'Abrir la configuraciÃ³n MCP completa', executeOnAccept: true },
+]
+
+function generateMcpSubcommandSuggestions(input: string): SuggestionItem[] | null {
+  const match = /^mcp(?:\s+(.*))?$/i.exec(input.slice(1))
+  if (!match) return null
+
+  const rawQuery = match[1] ?? ''
+  const query = rawQuery.trimStart().toLowerCase()
+  if (
+    query &&
+    rawQuery.endsWith(' ') &&
+    !query.startsWith('set-mode ') &&
+    !query.startsWith('master-session ')
+  ) return []
+
+  const candidates = MCP_SUBCOMMANDS.filter(item => {
+    const normalizedInput = item.input.toLowerCase()
+    if (!query) return true
+    if (normalizedInput.startsWith(query)) return true
+    const commandWords = normalizedInput.split(/\s+/)
+    const queryWords = query.split(/\s+/)
+    return queryWords.every((word, index) => commandWords[index]?.startsWith(word))
+  })
+
+  return candidates.map(item => ({
+    id: `mcp-subcommand:${item.input}`,
+    displayText: `/mcp ${item.input}`,
+    description: item.description,
+    metadata: {
+      mcpSubcommand: item.insertInput ?? item.input,
+      executeOnAccept: item.executeOnAccept,
+    } satisfies McpSuggestionMetadata,
+  }))
+}
+
+export function isMcpCommandInput(input: string): boolean {
+  return /^\/mcp(?:\s|$)/i.test(input)
+}
+
 /**
  * Creates a suggestion item from a command.
  * Only shows the matched alias in parentheses if the user typed an alias.
@@ -315,6 +418,11 @@ export function generateCommandSuggestions(
   // Only process command input
   if (!isCommandInput(input)) {
     return []
+  }
+
+  const mcpSuggestions = generateMcpSubcommandSuggestions(input)
+  if (mcpSuggestions !== null) {
+    return mcpSuggestions
   }
 
   // If there are arguments, don't show suggestions
@@ -403,7 +511,7 @@ export function generateCommandSuggestions(
   // first builds stays invisible to Fuse for the whole session. If the user
   // types the exact name of a currently-hidden command, prepend it to the
   // Fuse results so exact-name always wins over weak description fuzzy
-  // matches — but only when no visible command shares the name (that would
+  // matches â€” but only when no visible command shares the name (that would
   // be the user's explicit override and should win). Prepend rather than
   // early-return so visible prefix siblings (e.g. /voice-memo) still appear
   // below, and getBestCommandMatch can still find a non-empty suffix.
@@ -501,8 +609,8 @@ export function generateCommandSuggestions(
     const matchedAlias = findMatchedAlias(query, cmd.aliases)
     return createCommandSuggestionItem(cmd, matchedAlias)
   })
-  // Skip the prepend if hiddenExact is already in fuseSuggestions — this
-  // happens when isHidden flips false→true mid-session (OAuth expiry,
+  // Skip the prepend if hiddenExact is already in fuseSuggestions â€” this
+  // happens when isHidden flips falseâ†’true mid-session (OAuth expiry,
   // GrowthBook kill-switch) and the stale Fuse index still holds the
   // command. Fuse already sorts exact-name matches first, so no reorder
   // is needed; we just don't want a duplicate id (duplicate React keys,
@@ -530,6 +638,19 @@ export function applyCommandSuggestion(
   setCursorOffset: (offset: number) => void,
   onSubmit: (value: string, isSubmittingSlashCommand?: boolean) => void,
 ): void {
+  if (typeof suggestion !== 'string' && suggestion.id.startsWith('mcp-subcommand:')) {
+    const metadata = suggestion.metadata as McpSuggestionMetadata | undefined
+    if (!metadata || typeof metadata.mcpSubcommand !== 'string') return
+
+    const newInput = `/mcp ${metadata.mcpSubcommand}${metadata.executeOnAccept ? '' : ' '}`
+    onInputChange(newInput)
+    setCursorOffset(newInput.length)
+    if (shouldExecute && metadata.executeOnAccept) {
+      onSubmit(newInput, /* isSubmittingSlashCommand */ true)
+    }
+    return
+  }
+
   // Extract command name and object from string or SuggestionItem metadata
   let commandName: string
   let commandObj: Command | undefined

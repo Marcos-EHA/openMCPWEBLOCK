@@ -1,0 +1,13 @@
+{
+  "extends": "@extension/tsconfig/base",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@src/*": ["src/*"]
+    },
+    "types": ["chrome", "node", "vite/client"]
+  },
+  "include": ["src", "vite.config.mts"],
+  "comment": "*.test.ts runs under the Bun test runner, not Vite. Excluded so the content-script build does not need bun:test types.",
+  "exclude": ["**/*.test.ts"]
+}

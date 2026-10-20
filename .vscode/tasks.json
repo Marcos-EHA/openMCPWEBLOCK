@@ -1,0 +1,78 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "OpenMCPWEBLOCK CLI",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"dist/cli.mjs"
+			],
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "OpenMCP UX Session (temporary)",
+			"type": "shell",
+			"command": "python",
+			"args": [
+				"C:\\Users\\elias\\.copilot\\session-state\\890da053-0e85-4674-bc17-26e80987f829\\files\\openmcp-visible-tui.py"
+			],
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "OpenMCPWEBLOCK Visible TUI",
+			"type": "shell",
+			"command": "bun run dev",
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "Build OpenMCP After Z.ai Master Session Support",
+			"type": "shell",
+			"command": "bun run build",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Open Requested Master Sessions via OpenMCP",
+			"type": "shell",
+			"command": "bun",
+			"args": [
+				"-e",
+				"import { enableConfigs } from './src/utils/config.ts'; import { createMasterSessionSource, listMasterSessionSources } from './src/services/webRelay/session/MasterSessionRegistry.ts'; import { openMasterSessionSource } from './src/services/webRelay/session/MasterSessionController.ts'; enableConfigs(); const all=listMasterSessionSources(); const chatgpt=all.find(s=>s.id==='loco-verde'); const claude=all.find(s=>s.id==='locoverdesito'); if(!chatgpt||chatgpt.platformId!=='chatgpt') throw new Error('Expected existing ChatGPT source loco-verde.'); if(!claude||claude.platformId!=='claude') throw new Error('Expected existing Claude source locoverdesito.'); let zai=listMasterSessionSources().find(s=>s.name.toLowerCase()==='z.ai glm 5.3'); if(!zai) zai=createMasterSessionSource('Z.ai GLM 5.3','zai'); if(zai.platformId!=='zai') throw new Error('The Z.ai source name is already bound to another platform.'); for(const s of [chatgpt,claude,zai]){try{const r=await openMasterSessionSource(s.id); console.log(JSON.stringify({id:s.id,name:s.name,platform:s.platformId,port:r.debugPort,authenticated:r.authenticated,opened:true}));}catch(e){console.error(JSON.stringify({id:s.id,name:s.name,platform:s.platformId,port:s.debugPort,opened:false,error:e instanceof Error?e.message:String(e)}));}}"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Open Requested Master Sessions via OpenMCP Script",
+			"type": "shell",
+			"command": "bun run scripts/open-requested-masters.tmp.ts",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Check Master Sessions via OpenMCP",
+			"type": "shell",
+			"command": "bun run scripts/check-master-sessions.tmp.ts",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Inspect Z.ai Master Session",
+			"type": "shell",
+			"command": "bun run scripts/inspect-zai-master.tmp.ts",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Prepare Z.ai Master SuperAssistant",
+			"type": "shell",
+			"command": "bun run scripts/prepare-zai-master.tmp.ts",
+			"isBackground": false,
+			"problemMatcher": []
+		}
+	]
+}

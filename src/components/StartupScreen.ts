@@ -191,13 +191,18 @@ const LOCAL_COLOR: RGB = [130, 175, 130]  // Green for local mode
 
 // Web platform model mapping (what model each platform typically runs)
 const WEB_PLATFORM_MODELS: Record<string, { model: string; icon: string }> = {
-  chatgpt: { model: 'GPT-4o', icon: '🤖' },
+  chatgpt: { model: 'GPT-5.6 Luna', icon: '🤖' },
   gemini: { model: 'Gemini 2.5 Pro', icon: '✦' },
-  grok: { model: 'Grok 3', icon: '⚡' },
-  perplexity: { model: 'Sonar Pro', icon: '🔍' },
-  deepseek: { model: 'DeepSeek V3', icon: '🧠' },
+  grok: { model: 'Choose model in Grok', icon: '⚡' },
+  perplexity: { model: 'Choose model in Perplexity', icon: '🔍' },
+  deepseek: { model: 'Choose model in DeepSeek', icon: '🧠' },
+  kimi: { model: 'Choose model in Kimi', icon: '🌙' },
+  qwen: { model: 'Choose model in Qwen', icon: '🌐' },
+  chathub: { model: 'GLM-5.3 (ChatHub)', icon: '💬' },
+  chatx: { model: 'Choose an available model in ChatX', icon: '💬' },
   claude: { model: 'Claude Sonnet', icon: '🎭' },
   copilot: { model: 'GPT-4o', icon: '🪟' },
+  aistudio: { model: 'Choose model in AI Studio', icon: '✦' },
 }
 
 interface WebModeInfo {
@@ -299,11 +304,10 @@ export function printStartupScreen(modelOverride?: string): void {
 
   out.push(`${rgb(...BORDER)}\u2560${'\u2550'.repeat(W - 2)}\u2563${RESET}`)
 
-  // Status row — ● estado with color: green=ok, orange=waiting, red=error
-  // Color reflects current connection health, not mode type
-  const sC: RGB = [100, 200, 100] // Green = ready (TODO: dynamic based on actual connection)
-  const sRow = ` ${rgb(...sC)}\u25cf${RESET} ${DIM}${rgb(...DIMCOL)}estado${RESET}  ${DIM}${rgb(...DIMCOL)}Ready \u2014 type ${RESET}${rgb(...ACCENT)}/help${RESET}${DIM}${rgb(...DIMCOL)} to begin${RESET}`
-  const sLen = ` \u25cf estado  Ready \u2014 type /help to begin`.length
+  // Startup readiness is not a live health check; relay health is shown in the input footer.
+  const sC: RGB = DIMCOL
+  const sRow = ` ${rgb(...sC)}\u25cf${RESET} ${DIM}${rgb(...DIMCOL)}estado${RESET}  ${DIM}${rgb(...DIMCOL)}Interfaz lista \u2014 salud del puente en la barra inferior${RESET}`
+  const sLen = ` \u25cf estado  Interfaz lista — salud del puente en la barra inferior`.length
   out.push(boxRow(sRow, W, sLen))
 
   out.push(`${rgb(...BORDER)}\u255a${'\u2550'.repeat(W - 2)}\u255d${RESET}`)

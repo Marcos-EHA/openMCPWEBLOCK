@@ -4,6 +4,11 @@ dist/
 .env
 .env.*
 !.env.example
+
+# Config real del proxy SuperAssistant: contiene secretos (PAT de GitHub, etc.) en texto plano.
+# Se versiona solo la plantilla de ejemplo.
+superassistant-proxy.config.json
+!superassistant-proxy.config.example.json
 .openclaude-profile.json
 reports/
 GEMINI.md
@@ -12,3 +17,17 @@ package-lock.json
 /.claude
 coverage/
 agent.log
+logs/
+*.log
+
+# === AUDITORÍA: perfiles de navegador — contienen cookies, contraseñas y sesiones ===
+chrome-profile-dev/
+chrome-profile-pptr/
+
+# === AUDITORÍA: artefactos de pruebas y temporales ===
+test-mcp-output.txt
+test_output*.txt
+temp-term-test.txt
+Carpeta temporal para claude desktop/
+inbox_output.txt
+puerta*_output*.txt

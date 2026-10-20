@@ -42,19 +42,26 @@ export function getBridgeScript(): string {
   // ─── XML Parser: <function_calls> / <invoke> format ───────────
   function parseFunctionCallsXML(text) {
     var calls = [];
-    // Match <invoke name="ToolName" call_id="..."> ... </invoke>
-    var invokePattern = /<invoke\\s+name="([^"]+)"(?:\\s+call_id="([^"]*)")?\\s*>([\\s\\S]*?)<\\/invoke>/g;
+    // Match <invoke ...>...</invoke> or <invoke .../> with attributes in any order
+    var invokePattern = /<invoke\\s+([^>]+?)(?:\\s*>([\\s\\S]*?)<\\/invoke>|\\s*\\/>)/gi;
     var match;
     while ((match = invokePattern.exec(text)) !== null) {
-      var toolName = match[1];
-      var callId = match[2] || ('auto_' + (++callCounter));
-      var paramsBlock = match[3];
+      var attrs = match[1];
+      var paramsBlock = match[2] || '';
+
+      var nameMatch = attrs.match(/name="([^"]+)"/i);
+      var callIdMatch = attrs.match(/call_id="([^"]+)"/i);
+
+      var toolName = nameMatch ? nameMatch[1].trim() : '';
+      if (!toolName) continue;
+
+      var callId = callIdMatch ? callIdMatch[1].trim() : ('auto_' + (++callCounter));
       var params = {};
-      // Extract <parameter name="key">value</parameter>
-      var paramPattern = /<parameter\\s+name="([^"]+)"\\s*>([\\s\\S]*?)<\\/parameter>/g;
+
+      var paramPattern = /<parameter\\s+name="([^"]+)"[^>]*>([\\s\\S]*?)<\\/parameter>/gi;
       var pm;
       while ((pm = paramPattern.exec(paramsBlock)) !== null) {
-        params[pm[1]] = pm[2].trim();
+        params[pm[1].trim()] = pm[2].trim();
       }
       calls.push({ id: callId, name: toolName, input: params });
     }
@@ -127,9 +134,12 @@ export function getBridgeScript(): string {
 
   // ─── DOM Scanner ──────────────────────────────────────────────
   function scanForToolCalls() {
-    // Get all assistant messages
+    // Get all assistant messages (including 2026 ChatGPT DOM and articles)
     var msgs = document.querySelectorAll(
+      '[data-message-role="assistant"], ' +
       '[data-message-author-role="assistant"], ' +
+      '[data-assistant-markdown], ' +
+      'article, ' +
       '.model-response-text, ' +
       'model-response, ' +
       '[data-is-streaming], ' +
@@ -223,19 +233,24 @@ export const GET_BRIDGE_STATUS = `
  * Format tool results in the SA-compatible format for re-injection.
  * Uses <function_results> XML which is what Claude/ChatGPT understand.
  */
-export function formatToolResultMessage(results: Array<{name: string, output: string, isError: boolean}>): string {
+export function formatToolResultMessage(results: Array<{id?: string, name: string, output: string, isError: boolean}>): string {
   const parts = results.map(r => {
+    const callIdAttr = r.id ? ` call_id="${r.id}"` : '';
     if (r.isError) {
       return `<function_results>
+<result${callIdAttr}>
 <output name="${r.name}" status="error">
 ${r.output}
 </output>
+</result>
 </function_results>`;
     }
     return `<function_results>
+<result${callIdAttr}>
 <output name="${r.name}">
 ${r.output}
 </output>
+</result>
 </function_results>`;
   });
   return parts.join('\n\n');

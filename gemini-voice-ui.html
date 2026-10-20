@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Gemini Voice — openMCPWEBLOCK</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: 'Segoe UI', sans-serif; 
+      background: #0a0a0f; color: #e0e0e0;
+      display: flex; flex-direction: column; height: 100vh;
+    }
+    header {
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
+      padding: 20px; text-align: center;
+      border-bottom: 1px solid #333;
+    }
+    header h1 { font-size: 1.4em; color: #7dd3fc; }
+    header p { font-size: 0.85em; color: #888; margin-top: 4px; }
+    #chat {
+      flex: 1; overflow-y: auto; padding: 16px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .msg { max-width: 80%; padding: 12px 16px; border-radius: 12px; line-height: 1.5; }
+    .msg.user { align-self: flex-end; background: #1e3a5f; color: #b8d4f0; }
+    .msg.bot { align-self: flex-start; background: #1a2332; border: 1px solid #2a3a4a; }
+    .msg.system { align-self: center; background: #2a1a2e; color: #c084fc; font-size: 0.85em; }
+    .msg .tool { color: #fbbf24; font-size: 0.85em; margin-top: 4px; }
+    #controls {
+      padding: 16px; background: #111; border-top: 1px solid #333;
+      display: flex; gap: 10px; align-items: center;
+    }
+    #mic-btn {
+      width: 60px; height: 60px; border-radius: 50%; border: none;
+      background: #1e3a5f; color: white; font-size: 24px; cursor: pointer;
+      transition: all 0.3s;
+    }
+    #mic-btn.listening { background: #dc2626; animation: pulse 1.5s infinite; }
+    #mic-btn:hover { transform: scale(1.05); }
+    @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.4); } 50% { box-shadow: 0 0 0 15px rgba(220,38,38,0); } }
+    #text-input { 
+      flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #333;
+      background: #1a1a2e; color: #e0e0e0; font-size: 1em;
+    }
+    #send-btn {
+      padding: 12px 20px; border-radius: 8px; border: none;
+      background: #7dd3fc; color: #0a0a0f; font-weight: bold; cursor: pointer;
+    }
+    #status { text-align: center; padding: 4px; color: #666; font-size: 0.8em; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🎯 Gemini Orchestrator — openMCPWEBLOCK</h1>
+    <p>Habla o escribe · Gemini ejecuta tools en tu sistema</p>
+  </header>
+  
+  <div id="chat"></div>
+  <div id="status">Listo</div>
+  
+  <div id="controls">
+    <button id="mic-btn" title="Mantén presionado para hablar">🎤</button>
+    <input id="text-input" type="text" placeholder="Escribe aquí o usa el micrófono..." />
+    <button id="send-btn">Enviar</button>
+  </div>
+
+  <script>
+    const API_KEY = 'REEMPLAZAR_CLAVE_GOOGLE';
+    const MODEL = 'gemini-3.5-flash';
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`;
+    
+    const chat = document.getElementById('chat');
+    const micBtn = document.getElementById('mic-btn');
+    const textInput = document.getElementById('text-input');
+    const sendBtn = document.getElementById('send-btn');
+    const status = document.getElementById('status');
+    
+    let history = [];
+    let speaking = false;
+    
+    const SYSTEM_PROMPT = `Eres el orquestador de openMCPWEBLOCK. Respondes en español, conciso.
+Para tareas simples del sistema, indica qué herramienta usarías (list_files, read_file, run_command).
+Para tareas complejas, explica que delegarías a Claude/ChatGPT via Web Relay.
+Eres amigable y directo. El usuario se llama Elías.`;
+
+    // Speech Recognition
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+    
+    if (SpeechRecognition) {
+      recognition = new SpeechRecognition();
+      recognition.lang = 'es-ES';
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      
+      recognition.onresult = (e) => {
+        const transcript = Array.from(e.results)
+          .map(r => r[0].transcript).join('');
+        textInput.value = transcript;
+        if (e.results[0].isFinal) {
+          sendMessage(transcript);
+        }
+      };
+      
+      recognition.onend = () => {
+        micBtn.classList.remove('listening');
+        status.textContent = 'Listo';
+      };
+      
+      recognition.onerror = (e) => {
+        micBtn.classList.remove('listening');
+        status.textContent = `Error: ${e.error}`;
+      };
+    }
+    
+    // Speech Synthesis (TTS)
+    function speak(text) {
+      if (speaking) speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'es-ES';
+      utterance.rate = 1.1;
+      speaking = true;
+      utterance.onend = () => { speaking = false; };
+      speechSynthesis.speak(utterance);
+    }
+    
+    // Mic button
+    micBtn.addEventListener('mousedown', () => {
+      if (!recognition) { 
+        addMessage('Tu navegador no soporta reconocimiento de voz', 'system'); 
+        return; 
+      }
+      micBtn.classList.add('listening');
+      status.textContent = '🎤 Escuchando...';
+      recognition.start();
+    });
+    
+    micBtn.addEventListener('mouseup', () => {
+      if (recognition) recognition.stop();
+    });
+    
+    // Text input
+    textInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && textInput.value.trim()) {
+        sendMessage(textInput.value.trim());
+      }
+    });
+    sendBtn.addEventListener('click', () => {
+      if (textInput.value.trim()) sendMessage(textInput.value.trim());
+    });
+    
+    function addMessage(text, type = 'bot', toolInfo = '') {
+      const div = document.createElement('div');
+      div.className = `msg ${type}`;
+      div.innerHTML = text.replace(/\n/g, '<br>');
+      if (toolInfo) {
+        const toolDiv = document.createElement('div');
+        toolDiv.className = 'tool';
+        toolDiv.textContent = toolInfo;
+        div.appendChild(toolDiv);
+      }
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+    
+    async function sendMessage(text) {
+      addMessage(text, 'user');
+      textInput.value = '';
+      status.textContent = '🤔 Pensando...';
+      
+      history.push({ role: 'user', parts: [{ text }] });
+      
+      try {
+        const resp = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: history,
+            systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+            generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
+          })
+        });
+        
+        if (!resp.ok) throw new Error(`API ${resp.status}`);
+        
+        const data = await resp.json();
+        const parts = data.candidates?.[0]?.content?.parts || [];
+        const responseText = parts.map(p => p.text || '').join('');
+        
+        history.push({ role: 'model', parts: [{ text: responseText }] });
+        addMessage(responseText, 'bot');
+        
+        // Speak the response
+        speak(responseText);
+        
+        status.textContent = 'Listo';
+      } catch (e) {
+        addMessage(`Error: ${e.message}`, 'system');
+        status.textContent = 'Error';
+      }
+    }
+    
+    // Welcome
+    addMessage('¡Hola Elías! Soy Gemini, tu orquestador de openMCPWEBLOCK. Puedes hablarme o escribirme. 🎤', 'bot');
+    speak('¡Hola Elías! Soy tu orquestador de openMCPWEBLOCK. Puedes hablarme o escribirme.');
+  </script>
+</body>
+</html>

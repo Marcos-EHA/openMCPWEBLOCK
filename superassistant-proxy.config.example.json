@@ -1,0 +1,41 @@
+{
+  "mcpServers": {
+    "vm-ssh": {
+      "command": "node",
+      "args": ["C:\\Users\\<tu-usuario>\\Gits\\elias-context-mcp\\mcp-vm-ssh.js"],
+      "env": {},
+      "description": "VM Google Cloud: ejecutar comandos, leer/escribir archivos, Groq LLM, Shoal search"
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "C:\\"],
+      "description": "Acceso al sistema de archivos local"
+    },
+    "shell": {
+      "command": "npx",
+      "args": ["-y", "mcp-shell"],
+      "env": {
+        "ALLOW_COMMANDS": "python,python3,node,npm,npx,git,curl,ping,dir,ls,mkdir,type,echo,powershell,gcloud"
+      },
+      "description": "Ejecutar comandos del sistema"
+    },
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "description": "Memoria persistente entre sesiones"
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_your_personal_access_token_here"
+      },
+      "description": "GitHub repos, issues, PRs"
+    },
+    "duckduckgo-search": {
+      "command": "npx",
+      "args": ["-y", "duck-duck-mcp"],
+      "description": "Búsqueda web gratis via DuckDuckGo"
+    }
+  }
+}

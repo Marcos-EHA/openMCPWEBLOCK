@@ -1,0 +1,13 @@
+{
+  "extends": "@extension/tsconfig/app",
+  "compilerOptions": {
+    "types": ["vite/client", "node", "chrome"],
+    "baseUrl": ".",
+    "paths": {
+      "@src/*": ["src/*"]
+    }
+  },
+  "include": ["src", "utils", "vite.config.mts", "manifest.ts", "../node_modules/@types"],
+  "comment": "*.test.ts runs under the Bun test runner, not Vite. It is excluded here so the extension build does not need bun:test types and does not bundle test code into the service worker.",
+  "exclude": ["**/*.test.ts"]
+}

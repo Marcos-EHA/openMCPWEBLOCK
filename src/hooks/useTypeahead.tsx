@@ -22,7 +22,7 @@ import { generateProgressiveArgumentHint, parseArguments } from '../utils/argume
 import { getShellCompletions, type ShellCompletionType } from '../utils/bash/shellCompletion.js';
 import { formatLogMetadata } from '../utils/format.js';
 import { getSessionIdFromLog, searchSessionsByCustomTitle } from '../utils/sessionStorage.js';
-import { applyCommandSuggestion, findMidInputSlashCommand, generateCommandSuggestions, getBestCommandMatch, isCommandInput } from '../utils/suggestions/commandSuggestions.js';
+import { applyCommandSuggestion, findMidInputSlashCommand, generateCommandSuggestions, getBestCommandMatch, isCommandInput, isMcpCommandInput } from '../utils/suggestions/commandSuggestions.js';
 import { getDirectoryCompletions, getPathCompletions, isPathLikeToken } from '../utils/suggestions/directoryCompletion.js';
 import { getShellHistoryCompletion } from '../utils/suggestions/shellHistoryCompletion.js';
 import { getSlackChannelSuggestions, hasSlackMcpServer } from '../utils/suggestions/slackChannelSuggestions.js';
@@ -657,6 +657,23 @@ export function useTypeahead({
     // Also don't show if cursor is at end of line with whitespace before it
     // Don't show slash commands in bash mode
     const isAtEndWithWhitespace = effectiveCursorOffset === value.length && effectiveCursorOffset > 0 && value.length > 0 && value[effectiveCursorOffset - 1] === ' ';
+
+    // MCP has nested subcommands, so it must take precedence over the generic
+    // argument-command handling below (which treats everything after "/mcp"
+    // as arguments and clears the suggestion list).
+    if (mode === 'prompt' && isMcpCommandInput(value) && effectiveCursorOffset > 0) {
+      const commandItems = generateCommandSuggestions(value, commands);
+      setSuggestionsState(() => ({
+        commandArgumentHint: undefined,
+        suggestions: commandItems,
+        selectedSuggestion: commandItems.length > 0 ? 0 : -1,
+      }));
+      setSuggestionType(commandItems.length > 0 ? 'command' : 'none');
+      if (commandItems.length > 0) {
+        setMaxColumnWidth(allCommandsMaxWidth);
+      }
+      return;
+    }
 
     // Handle directory completion for commands
     if (mode === 'prompt' && isCommandInput(value) && effectiveCursorOffset > 0) {

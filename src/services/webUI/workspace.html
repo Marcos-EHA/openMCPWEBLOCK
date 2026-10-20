@@ -1,0 +1,2850 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenMCPWEBLOCK Workspace</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', monospace; background:#1a1a2e; color:#e0e0e0; height:100vh; display:flex; flex-direction:column; }
+
+/* ── Header ── */
+#header { padding:10px 20px; background:#16213e; border-bottom:1px solid #0f3460; display:flex; justify-content:space-between; align-items:center; }
+#header h1 { font-size:15px; color:#00d4ff; }
+#header-right { display:flex; align-items:center; gap:10px; }
+#conn { font-size:12px; }
+.workspace-settings-button { padding:5px 10px; border:1px solid #254264; border-radius:5px; background:#1a2a3a; color:#b9c8d8; cursor:pointer; font:inherit; font-size:12px; }
+.workspace-settings-button:hover { border-color:#4a9eff; color:#fff; }
+dialog.workspace-settings { width:min(520px,calc(100vw - 32px)); margin:auto; padding:0; border:1px solid #315174; border-radius:10px; background:#16213e; color:#e0e0e0; box-shadow:0 20px 70px #000a; }
+dialog.workspace-settings::backdrop { background:#050914bb; }
+.settings-content { padding:20px; }
+.settings-content h2 { margin-bottom:14px; color:#00d4ff; font-size:16px; }
+.settings-content label { display:flex; align-items:flex-start; gap:10px; font-size:13px; font-weight:600; }
+.settings-content input { margin-top:2px; accent-color:#00d4ff; }
+.settings-description { margin:10px 0 0 26px; color:#aab8ca; font-size:12px; line-height:1.5; }
+.settings-note { margin:12px 0 0 26px; color:#8294aa; font-size:11px; line-height:1.5; }
+.settings-status { min-height:18px; margin-top:12px; color:#ffcf4a; font-size:12px; }
+.context-controls { margin:12px 0 0 26px; display:flex; gap:8px; flex-wrap:wrap; }
+.context-controls button { padding:5px 9px; border:1px solid #315174; border-radius:5px; background:#0f3460; color:#e0e0e0; cursor:pointer; }
+.context-summary { margin:8px 0 0 26px; color:#aab8ca; font-size:11px; }
+.context-events { max-height:180px; overflow:auto; margin:8px 0 0 26px; }
+.context-event { max-height:120px; overflow:auto; padding:6px 8px; border-left:3px solid #36b37e; margin-bottom:5px; background:#111a2a; font-size:11px; white-space:pre-wrap; overflow-wrap:anywhere; }
+.context-event.review { border-color:#ffb020; color:#ffd98a; }
+.context-event.review-sensitive { border-color:#ff6565; color:#ffc0c0; background:#321a22; }
+.context-event.clean-worker { border-left-color:#2c7c8f; }
+.context-event.severity-critical { border-left-color:#ff3b55; color:#ffd0d6; background:#3a111c; }
+.context-event.severity-high { border-left-color:#ff765e; color:#ffd1c7; }
+.context-event.severity-medium { border-left-color:#ffb020; color:#ffe1a3; }
+.context-review-state { display:block; margin-top:4px; font-weight:700; }
+.settings-footer { display:flex; justify-content:flex-end; margin-top:10px; }
+.settings-footer button { padding:7px 14px; border:1px solid #315174; border-radius:5px; background:#0f3460; color:#e0e0e0; cursor:pointer; }
+
+/* ── View toggle ── */
+.view-toggle { display:flex; border:1px solid #0f3460; border-radius:5px; overflow:hidden; }
+.view-btn { padding:4px 12px; font-size:11px; cursor:pointer; background:transparent; color:#888; border:none; transition:all 0.15s; font-family:inherit; }
+.view-btn:hover { color:#ccc; background:#0f3460; }
+.view-btn.active { background:#0f3460; color:#00d4ff; }
+
+/* ══════════════════════════════════════════════
+   VISTA CLÁSICA
+   ══════════════════════════════════════════════ */
+#view-classic { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+#classic-shared { flex:0 0 200px; overflow-y:auto; padding:15px; border-bottom:2px solid #0f3460; background:#111; }
+#classic-shared h2 { font-size:14px; color:#00d4ff; margin-bottom:10px; }
+#classic-instances { flex:1; display:flex; overflow-x:auto; padding:10px; gap:10px; }
+
+/* ══════════════════════════════════════════════
+   VISTA CANVAS
+   ══════════════════════════════════════════════ */
+#view-canvas { flex:1; display:none; flex-direction:column; overflow:hidden; }
+#canvas-main { flex:1; display:flex; overflow:hidden; }
+
+/* Canvas panel (izquierda) */
+#canvas-panel { flex:0 0 340px; display:flex; flex-direction:column; border-right:2px solid #0f3460; background:#0d1117; }
+#canvas-header { padding:10px 14px; background:#0d1b2a; border-bottom:1px solid #0f3460; display:flex; justify-content:space-between; align-items:center; }
+#canvas-header h2 { font-size:13px; color:#4aff4a; }
+#canvas-stats { font-size:11px; color:#888; }
+#canvas-content { flex:1; overflow-y:auto; padding:10px; }
+.canvas-section { margin-bottom:14px; }
+.canvas-section h3 { font-size:11px; color:#666; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; padding-bottom:4px; border-bottom:1px solid #1a2a3a; }
+
+.finding { margin:4px 0; padding:8px 10px; border-radius:4px; border-left:3px solid #4aff4a; background:#1a2a1a; font-size:12px; transition:background 0.2s; }
+.finding:hover { background:#223322; }
+.finding .f-header { display:flex; justify-content:space-between; align-items:center; }
+.finding .topic { font-weight:bold; color:#4aff4a; font-size:11px; }
+.finding .platform { font-size:10px; color:#888; }
+.finding .text { color:#ccc; margin-top:4px; line-height:1.4; }
+.finding .meta { font-size:10px; color:#555; margin-top:3px; }
+.confidence-alta { border-left-color:#4aff4a; }
+.confidence-media { border-left-color:#ffcf4a; }
+.confidence-baja { border-left-color:#666; }
+
+.request-item { margin:4px 0; padding:8px 10px; border-radius:4px; border-left:3px solid #4a9eff; background:#1a2a3a; font-size:12px; }
+.request-item.fulfilled { opacity:0.5; border-left-color:#4aff4a; }
+.request-item .need { color:#4a9eff; font-weight:bold; font-size:11px; }
+.request-item .reason { color:#999; margin-top:3px; }
+
+.issue-item { margin:4px 0; padding:8px 10px; border-radius:4px; border-left:3px solid #ff4a4a; background:#2a1a1a; font-size:12px; }
+.issue-item.severity-media { border-left-color:#ffcf4a; }
+.issue-item.severity-baja { border-left-color:#888; }
+.issue-item .desc { color:#ff7a7a; }
+.issue-item .sev { font-size:10px; color:#888; float:right; }
+
+.conv-item { margin:4px 0; padding:6px 10px; border-radius:4px; background:#1a3a2a; border-left:3px solid #00d4ff; font-size:12px; }
+.conv-item .topic { color:#00d4ff; font-weight:bold; }
+.conv-item .count { color:#4aff4a; font-size:11px; }
+
+.div-item { margin:4px 0; padding:6px 10px; border-radius:4px; background:#3a2a1a; border-left:3px solid #ff9a4a; font-size:12px; }
+.div-item .topic { color:#ff9a4a; font-weight:bold; }
+
+.empty-hint { color:#444; font-style:italic; font-size:12px; padding:20px 0; text-align:center; }
+
+/* Canvas right area */
+#canvas-right { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+#canvas-shared { flex:0 0 140px; overflow-y:auto; padding:10px 14px; border-bottom:2px solid #0f3460; background:#111; }
+#canvas-shared h2 { font-size:13px; color:#00d4ff; margin-bottom:6px; }
+#canvas-instances { flex:1; display:flex; overflow-x:auto; padding:8px; gap:8px; }
+
+/* ══════════════════════════════════════════════
+   SHARED STYLES
+   ══════════════════════════════════════════════ */
+.msg { margin:3px 0; padding:6px 10px; border-radius:4px; font-size:12px; }
+.msg.coordinator { background:#1a3a5c; border-left:3px solid #4a9eff; }
+.msg.worker { background:#1a2a1a; border-left:3px solid #4aff4a; }
+.msg.ide { background:#1d2a3a; border-left:3px solid #9f8cff; }
+.msg.sentinel { background:#2a1a2a; border-left:3px solid #ff4a9e; }
+.sentinel-review-button { display:block; margin-top:6px; padding:3px 7px; border:1px solid #70496a; border-radius:4px; background:#302238; color:#f0c9e8; cursor:pointer; font:inherit; font-size:11px; }
+.sentinel-review-button:disabled { cursor:wait; opacity:.65; }
+.sentinel-monitor { padding:7px 9px; border-bottom:1px solid #0f3460; font-size:11px; }
+.sentinel-monitor button,.instance-sentinel-inspect { padding:4px 7px; border:1px solid #70496a; border-radius:4px; background:#302238; color:#f0c9e8; cursor:pointer; font:inherit; font-size:11px; }
+.sentinel-monitor button:disabled,.instance-sentinel-inspect:disabled { cursor:wait; opacity:.65; }
+.sentinel-monitor-status { margin-top:5px; color:#aab8ca; line-height:1.4; }
+.sentinel-monitor-results { max-height:120px; overflow:auto; margin-top:4px; white-space:pre-wrap; overflow-wrap:anywhere; }
+.workspace-alerts { margin:6px 10px; border:1px solid #5a4930; border-radius:7px; background:#201b13; color:#e5d8bd; font-size:12px; }
+.workspace-alerts summary { padding:8px 10px; cursor:pointer; font-weight:700; }
+.workspace-alerts-body { max-height:210px; overflow:auto; padding:0 10px 8px; }
+.workspace-alerts-toolbar { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:4px 0 7px; color:#aab8ca; font-size:11px; }
+.workspace-alerts-toolbar button,.workspace-alert-assign { padding:4px 7px; border:1px solid #705b36; border-radius:5px; background:#302719; color:#ffe0a0; cursor:pointer; font:inherit; font-size:11px; }
+.workspace-alert-item { margin:5px 0; padding:7px 8px; border-left:3px solid #e0a849; background:#17140f; overflow-wrap:anywhere; }
+.workspace-alert-item time { color:#9a8e78; font-size:10px; }
+.workspace-alert-item p { margin:3px 0 6px; white-space:pre-wrap; }
+.workspace-alert-empty { color:#aab8ca; padding:5px 0; }
+.workspace-instance { display:flex; flex-direction:column; align-items:flex-start; gap:4px; }
+.msg.user { background:#3a3a1a; border-left:3px solid #ffcf4a; }
+
+.panel { min-width:250px; max-width:350px; flex:0 0 280px; background:#16213e; border:1px solid #0f3460; border-radius:8px; display:flex; flex-direction:column; }
+.panel.instance-clean { border-color:#2c7c8f; }
+.panel.instance-master { border-color:#8665c7; }
+.panel.instance-coordinator { border-color:#b58b45; }
+.panel-header { padding:8px 10px; border-bottom:1px solid #0f3460; display:flex; justify-content:space-between; align-items:center; }
+.panel-name { flex:1; min-width:0; overflow:hidden; font-size:12px; font-weight:bold; text-overflow:ellipsis; white-space:nowrap; }
+.panel-status { font-size:11px; }
+.instance-kind-badge { flex:0 0 auto; padding:2px 6px; border-radius:10px; font-size:9px; font-weight:700; }
+.instance-kind-badge.clean { color:#9cecf0; background:#173d49; }
+.instance-kind-badge.master { color:#dccbff; background:#382b58; }
+.instance-kind-badge.coordinator { color:#ffe0a0; background:#4a3820; }
+.panel-close { display:grid; flex:0 0 28px; place-items:center; width:28px; height:28px; margin-left:8px; border:1px solid transparent; border-radius:6px; background:transparent; color:#8294aa; cursor:pointer; font:20px/1 system-ui,sans-serif; }
+.panel-close:hover:not(:disabled) { border-color:#6b303b; background:#3a1d27; color:#ff9a9a; }
+.panel-close:focus-visible,.panel-action:focus-visible { outline:2px solid #00d4ff; outline-offset:2px; }
+.panel-close:disabled { cursor:not-allowed; opacity:.4; }
+.panel-actions { display:flex; gap:6px; padding:6px 8px; border-top:1px solid #0f3460; }
+.panel-action { flex:1; padding:5px 8px; border:1px solid #254264; border-radius:5px; background:#1a2a3a; color:#a9d2ff; cursor:pointer; font:11px system-ui,sans-serif; }
+.panel-action:hover:not(:disabled) { background:#203a54; border-color:#4a9eff; }
+.panel-action:disabled { cursor:wait; opacity:.55; }
+.panel-body { flex:1; overflow-y:auto; padding:8px; font-size:11px; }
+.act { margin:3px 0; padding:4px 6px; border-radius:3px; word-break:break-word; }
+.instance-chat { border-top:1px solid #0f3460; padding:7px 8px; display:flex; flex-direction:column; gap:5px; }
+.instance-chat-title { color:#a3f5d6; font-size:10px; font-weight:700; }
+.instance-chat-history { max-height:170px; min-height:42px; overflow:auto; display:flex; flex-direction:column; gap:4px; }
+.instance-chat-message { white-space:pre-wrap; overflow-wrap:anywhere; padding:5px 7px; border-radius:5px; font-size:10px; line-height:1.4; }
+.instance-chat-message.user { background:#1c3550; color:#dcecff; align-self:flex-end; max-width:92%; }
+.instance-chat-message.assistant { background:#202b24; color:#e6edf3; align-self:flex-start; max-width:96%; }
+.instance-chat-message.status,.instance-chat-message.error { color:#e3b341; }
+.instance-chat-form { display:flex; gap:5px; align-items:flex-end; }
+.instance-chat-input { flex:1; resize:vertical; min-width:0; max-height:100px; background:#0d1117; color:#e6edf3; border:1px solid #30363d; border-radius:5px; padding:6px; font:inherit; font-size:11px; }
+.instance-chat-send,.instance-chat-refresh { padding:5px 8px; background:#163d2c; border:1px solid #36b37e; border-radius:4px; color:#a3f5d6; cursor:pointer; font-size:10px; }
+.instance-chat-send:disabled,.instance-chat-input:disabled { cursor:wait; opacity:.6; }
+.instance-chat-status { color:#aab8ca; font-size:9px; min-height:1em; }
+.sentinel-chat-panel { border:0; padding:0; }
+.sentinel-chat-note { color:#9baac1; font-size:9px; line-height:1.4; }
+.sentinel-launch-proposal { padding:6px; border:1px solid #d29922; border-radius:5px; color:#f0d58a; font-size:10px; }
+.sentinel-launch-proposal button { margin-top:5px; padding:5px 8px; border:1px solid #36b37e; border-radius:4px; background:#163d2c; color:#a3f5d6; cursor:pointer; }
+.sentinel-launch-proposal button:disabled { cursor:wait; opacity:.6; }
+.instance-launch-event { margin:4px 0; padding:5px 6px; border-left:2px solid #52647d; background:#111a29; color:#d0d7de; font-size:9px; overflow-wrap:anywhere; }
+.instance-launch-event time { display:block; margin-bottom:2px; color:#8b949e; }
+.instance-launch-event.ready { border-color:#36b37e; }
+.instance-launch-event.failed { border-color:#f85149; color:#ffb4a9; }
+.instance-launch-event.starting,.instance-launch-event.preparing,.instance-launch-event.restarting { border-color:#d29922; }
+.act.reasoning { background:#1a2a3a; color:#7ab8ff; font-style:italic; }
+.act.call { background:#1a3a2a; color:#7aff7a; }
+.act.response { background:#3a2a1a; color:#ffcf7a; }
+.act.error { background:#3a1a1a; color:#ff7a7a; }
+
+/* Input bar */
+#inputbar { padding:10px 20px; background:#16213e; border-top:1px solid #0f3460; display:flex; gap:8px; }
+#inputbar input { flex:1; padding:8px 12px; border:1px solid #0f3460; border-radius:6px; background:#111; color:#e0e0e0; font-size:13px; outline:none; }
+#inputbar input:focus { border-color:#00d4ff; }
+#destination { padding:8px; border:1px solid #0f3460; border-radius:6px; background:#111; color:#e0e0e0; font-size:12px; }
+#inputbar button { padding:8px 14px; background:#0f3460; color:#00d4ff; border:none; border-radius:6px; cursor:pointer; font-size:13px; white-space:nowrap; font-family:inherit; }
+#inputbar button:hover { background:#1a4a80; }
+.workspace-roster { display:flex; align-items:stretch; gap:10px; overflow-x:auto; padding:10px 20px; background:#101a2e; border-top:1px solid #0f3460; }
+.workspace-roster-heading { flex:0 0 150px; align-self:center; }
+.workspace-roster-title { color:#00d4ff; font-size:12px; font-weight:700; }
+.workspace-roster-count { color:#8294aa; font-size:11px; margin-top:4px; }
+.workspace-participant { display:flex; align-items:center; gap:10px; flex:0 0 280px; min-height:68px; padding:9px 12px; border:1px solid #344c70; border-radius:8px; background:#17243b; color:#dce8f5; text-align:left; font:inherit; cursor:pointer; transition:border-color .15s,background .15s,transform .15s; }
+.workspace-participant:hover:not(:disabled) { border-color:#9f8cff; background:#202d49; transform:translateY(-1px); }
+.workspace-participant.is-selected { border-color:#9f8cff; box-shadow:0 0 0 1px #9f8cff55; }
+.workspace-participant:focus-visible { outline:2px solid #9f8cff; outline-offset:2px; }
+.workspace-participant:disabled { cursor:not-allowed; opacity:.58; }
+.participant-avatar { display:grid; place-items:center; flex:0 0 38px; width:38px; height:38px; border-radius:11px; background:#342e59; color:#c9bbff; font-size:12px; font-weight:800; }
+.participant-details { display:flex; flex:1; min-width:0; flex-direction:column; gap:3px; }
+.participant-name { overflow:hidden; color:#f1edff; font-size:12px; font-weight:700; text-overflow:ellipsis; white-space:nowrap; }
+.participant-provider,.participant-activity { overflow:hidden; color:#94a4b9; font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
+.participant-presence { flex:0 0 auto; color:#4aff9a; font-size:10px; font-weight:700; }
+.participant-presence::before { content:""; display:inline-block; width:7px; height:7px; margin-right:5px; border-radius:50%; background:currentColor; }
+.participant-presence.busy { color:#ffcf4a; }
+.participant-presence.idle,.participant-presence.offline { color:#8290a4; }
+.participant-open { flex:0 0 auto; color:#a995ff; font-size:10px; }
+.workspace-empty { align-self:center; color:#8294aa; font-size:11px; }
+.workspace-task-board { display:flex; gap:10px; overflow-x:auto; padding:10px 20px; background:#0d1728; border-top:1px solid #263b5a; }
+.workspace-task-heading { flex:0 0 150px; align-self:center; }
+.workspace-task-title { color:#ffcf4a; font-size:12px; font-weight:700; }
+.workspace-task-count { color:#8294aa; font-size:11px; margin-top:4px; }
+.workspace-task-group { flex:0 0 300px; padding:9px 11px; border:1px solid #3e4a62; border-radius:8px; background:#172033; }
+.workspace-task-prompt { color:#e8edf5; font-size:11px; font-weight:600; line-height:1.4; }
+.workspace-task-members { display:flex; flex-direction:column; gap:5px; margin-top:8px; }
+.workspace-task-member { padding:6px 8px; border-radius:5px; background:#101827; font-size:10px; }
+.workspace-task-member-header { display:flex; justify-content:space-between; gap:8px; color:#c9bbff; font-weight:700; }
+.workspace-task-member-status { color:#8294aa; }
+.workspace-task-member-status.claimed { color:#ffcf4a; }
+.workspace-task-member-status.completed { color:#4aff9a; }
+.workspace-task-member-status.failed { color:#ff7a7a; }
+.workspace-task-response { margin-top:4px; color:#c4cedb; line-height:1.4; white-space:pre-wrap; overflow-wrap:anywhere; }
+.workspace-collaboration-control { display:flex; align-items:center; gap:6px; padding:0 8px; color:#c9bbff; font-size:11px; white-space:nowrap; cursor:pointer; }
+.workspace-collaboration-control input { accent-color:#9f8cff; }
+.instance-roster { display:flex; gap:8px; overflow-x:auto; padding:6px 20px 0; background:#101a2e; }
+.workspace-instance { flex:0 0 auto; padding:5px 9px; border:1px solid #254264; border-radius:5px; color:#b9c8d8; font-size:11px; }
+.workspace-instance.clean { border-color:#2c7c8f; background:#12323c; }
+.workspace-instance.master { border-color:#8665c7; background:#2a2140; }
+.workspace-instance.local { border-color:#36b37e; background:#132e22; }
+.panel.instance-local { border-color:#36b37e; }
+.instance-kind-badge.local { color:#a3f5d6; background:#163d2c; }
+.instance-sentinel-review { display:flex; align-items:center; gap:5px; margin-top:5px; color:#e7c5ee; font-size:10px; cursor:pointer; }
+.instance-sentinel-review input { accent-color:#c687df; }
+.workspace-instance .instance-status { margin-left:6px; color:#4aff4a; }
+.workspace-instance .instance-status.busy { color:#ffcf4a; }
+.workspace-instance .instance-status.offline { color:#777; }
+.instance-facts { color:#aab8ca; font-size:10px; line-height:1.45; overflow-wrap:anywhere; }
+.instance-facts details { margin-top:3px; }
+.instance-facts summary { color:#d4c1d1; cursor:pointer; }
+.instance-sentinel-status { color:#b9c8d8; }
+.btn-launch { background:#1a3a1a !important; color:#4aff4a !important; }
+.btn-launch:hover { background:#2a4a2a !important; }
+.ok { color:#4aff4a; } .busy { color:#ffcf4a; } .err { color:#ff7a7a; } .off { color:#666; }
+</style>
+</head>
+<body>
+
+<!-- ── Header con toggle ── -->
+<div id="header">
+  <h1>🔗 OpenMCPWEBLOCK Workspace</h1>
+  <div id="header-right">
+    <div class="view-toggle">
+      <button class="view-btn active" onclick="switchView('classic')" id="btn-classic">📊 Clásica</button>
+      <button class="view-btn" onclick="switchView('canvas')" id="btn-canvas">📋 Canvas</button>
+    </div>
+    <button class="workspace-settings-button" type="button" onclick="openWorkspaceSettings()">⚙ Ajustes</button>
+    <span id="conn">Conectando...</span>
+  </div>
+</div>
+
+<!-- ══ VISTA CLÁSICA ══ -->
+<div id="view-classic">
+  <div id="classic-shared">
+    <h2>Espacio Conjunto</h2>
+    <div id="classic-msgs"></div>
+  </div>
+  <div id="classic-instances">
+    <div class="panel" id="classic-p-sentinel">
+      <div class="panel-header"><span class="panel-name">Sentinel</span><span class="panel-status ok">OK</span></div>
+      <div class="panel-body" id="classic-b-sentinel">
+        <section class="instance-chat instance-chat-panel sentinel-chat-panel">
+          <div class="instance-chat-title">Conversación Sentinel · Gemini</div>
+          <div class="sentinel-chat-note">Historial local de este proyecto. Puedes conversar, consultar el estado de Relays y pedir propuestas de lanzamiento; los lanzamientos requieren confirmación.</div>
+          <div class="instance-chat-history" data-sentinel-chat-history aria-live="polite"></div>
+          <form class="instance-chat-form" data-sentinel-chat-form>
+            <textarea class="instance-chat-input" data-sentinel-chat-input rows="2" maxlength="4000" placeholder="Escribe a Sentinel..."></textarea>
+            <button class="instance-chat-send" data-sentinel-chat-send type="submit">Enviar</button>
+          </form>
+          <div class="instance-chat-status" data-sentinel-chat-status role="status">Cargando conversación guardada...</div>
+        </section>
+      </div>
+      <div class="sentinel-monitor"><button type="button" onclick="scanSentinelWorkspace(this)">Escanear instancias</button><details class="sentinel-capabilities"><summary>Qué puede hacer Sentinel</summary><div>Conversa sobre UX e ideas usando el contexto que le escribas. Puede consultar el roster de Relays y proponer lanzamientos; nada se inicia hasta que confirmes la propuesta. El escaneo consulta salud técnica sin leer chats. Para analizar un chat visible, usa “Revisar chat con Sentinel” en la tarjeta del Relay y confirma.</div></details><div class="sentinel-monitor-status" id="classic-sentinel-monitor-status" aria-live="polite">Supervisión técnica de Relay; no lee chats.</div><div class="sentinel-monitor-results" id="classic-sentinel-monitor-results"></div></div>
+    </div>
+    <div class="panel" id="classic-p-coordinator">
+      <div class="panel-header"><span class="panel-name">Coordinador</span><span class="panel-status off">Sin asignar</span></div>
+      <div class="panel-body" id="classic-b-coordinator"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ VISTA CANVAS ══ -->
+<div id="view-canvas">
+  <div id="canvas-main">
+    <div id="canvas-panel">
+      <div id="canvas-header">
+        <h2>📋 Lienzo Curado</h2>
+        <span id="canvas-stats">—</span>
+      </div>
+      <div id="canvas-content">
+        <div class="canvas-section" id="sec-convergence" style="display:none">
+          <h3>🤝 Convergencia</h3>
+          <div id="convergence-list"></div>
+        </div>
+        <div class="canvas-section" id="sec-divergence" style="display:none">
+          <h3>⚡ Divergencia</h3>
+          <div id="divergence-list"></div>
+        </div>
+        <div class="canvas-section" id="sec-findings">
+          <h3>📌 Hallazgos</h3>
+          <div id="findings-list"><span class="empty-hint">Los hallazgos aparecerán aquí conforme los workers reporten.</span></div>
+        </div>
+        <div class="canvas-section" id="sec-requests" style="display:none">
+          <h3>🔄 Solicitudes entre workers</h3>
+          <div id="requests-list"></div>
+        </div>
+        <div class="canvas-section" id="sec-issues" style="display:none">
+          <h3>🚩 Problemas detectados</h3>
+          <div id="issues-list"></div>
+        </div>
+      </div>
+    </div>
+    <div id="canvas-right">
+      <div id="canvas-shared">
+        <h2>Conversación</h2>
+        <div id="canvas-msgs"></div>
+      </div>
+      <div id="canvas-instances">
+        <div class="panel" id="canvas-p-sentinel">
+          <div class="panel-header"><span class="panel-name">Sentinel</span><span class="panel-status ok">OK</span></div>
+          <div class="panel-body" id="canvas-b-sentinel"></div>
+          <div class="sentinel-monitor"><button type="button" onclick="scanSentinelWorkspace(this)">Escanear instancias</button><div class="sentinel-monitor-status" id="canvas-sentinel-monitor-status" aria-live="polite">Supervisión técnica de Relay; no lee chats.</div><div class="sentinel-monitor-results" id="canvas-sentinel-monitor-results"></div></div>
+        </div>
+        <div class="panel" id="canvas-p-coordinator">
+          <div class="panel-header"><span class="panel-name">Orquestador</span><span class="panel-status off">Sin asignar</span></div>
+          <div class="panel-body" id="canvas-b-coordinator"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Input bar (compartido) ── -->
+<div id="instance-roster" class="instance-roster" aria-label="Instancias Relay y Master"></div>
+<div id="workspace-task-board" class="workspace-task-board" aria-label="Tareas de agentes IDE"></div>
+<div id="workspace-roster" class="workspace-roster" aria-label="Agentes IDE del workspace"></div>
+<details id="workspace-alerts" class="workspace-alerts">
+  <summary>Alertas de lanzamiento <span id="workspace-alert-count"></span></summary>
+  <div class="workspace-alerts-body">
+    <div class="workspace-alerts-toolbar">
+      <span id="workspace-alert-status" role="status">Los fallos de lanzamiento aparecerán aquí.</span>
+      <button type="button" onclick="loadWorkspaceAlerts()">Actualizar</button>
+    </div>
+    <div id="workspace-alert-list" aria-live="polite"><div class="workspace-alert-empty">Todavía no hay avisos de lanzamiento.</div></div>
+    <p class="workspace-alert-empty">Las IA locales pueden consultar estos eventos con <code>openmcp_read_activity</code> y la fuente <code>orchestration</code>. El historial de esta sección es temporal y se pierde al reiniciar el proceso.</p>
+  </div>
+</details>
+<dialog id="workspace-settings-dialog" class="workspace-settings">
+  <form method="dialog" class="settings-content">
+    <h2>Ajustes del Workspace</h2>
+    <label>
+      <input id="restore-master-workers" type="checkbox" checked onchange="saveWorkspaceSettings()">
+      Restaurar el registro anterior de Masters worker
+    </label>
+    <p class="settings-description">Si lo desactivas, las Masters anteriores dejan de participar en el pool del Workspace. No se cierran sus ventanas ni se borran perfiles, cuentas o credenciales; puedes volver a activar la opción para recuperar el registro.</p>
+    <label style="margin-top:16px">
+      <input id="resume-master-session" type="checkbox" onchange="saveWorkspaceSettings()">
+      Continuar donde lo dejaste en las Master Sessions
+    </label>
+    <p class="settings-description">Al volver a abrir una Master, restaura sus pestañas anteriores y conserva la conversación abierta cuando Chrome pueda recuperarla. Si no encuentra una pestaña de la plataforma, abre su página principal.</p>
+    <label style="margin-top:16px">
+      <input id="save-clean-context" type="checkbox" onchange="saveWorkspaceSettings()">
+      Guardar memoria temporal compartida
+    </label>
+    <p class="settings-description">Guarda sin truncar las interacciones gestionadas por Workspace y llamadas/resultados MCP. Los agentes pueden consultarla mediante las herramientas workspace_context_*; no se inyecta completa automáticamente.</p>
+    <label style="margin-top:12px">
+      <input id="capture-web-conversations" type="checkbox" onchange="saveWorkspaceSettings()">
+      Incluir mensajes visibles de las instancias web (Clean y Master)
+    </label>
+    <label style="margin-top:12px">
+      <input id="sentinel-auto-review" type="checkbox" onchange="saveWorkspaceSettings()">
+      Permitir análisis conversacional automático de Sentinel en este Workspace
+    </label>
+    <p class="settings-description">Consentimiento general del proyecto, desactivado por defecto. Después debes autorizar cada Relay por separado en el roster. Los mensajes visibles autorizados se envían a Gemini, pueden incluir conversaciones autenticadas y consumen cuota; esta función no los guarda. Desactivar revoca las autorizaciones por Relay. Sentinel no ejecuta herramientas ni modifica código.</p>
+    <p class="settings-note">Es una autorización separada: al activarla se guardan localmente los turnos de usuario y asistente que la extensión reconoce en el DOM visible. La detección usa selectores DOM comunes y es experimental: no garantiza cobertura de todas las páginas, contenido virtualizado ni conversaciones completas. No guarda cookies ni el DOM completo. Si detecta un patrón local de credencial, omite el texto y guarda solo una marca roja de omisión; otros mensajes pueden contener datos sensibles y afectar a futuras respuestas. En la memoria identificada como worker Clean, las señales locales se muestran por nivel (medio/alto/crítico) y se indica por separado si falta análisis de IA. Cuando Sentinel no esté disponible o no se quiera usar, estas señales no se presentan como análisis: el asistente debe revisar el texto Clean disponible al atender la solicitud. Desactivar detiene nuevas capturas, no borra lo anterior.</p>
+    <p class="settings-note">La memoria no es el lienzo colaborativo. Relay Clean sigue usando un perfil aislado y no restaura su conversación web; el diario aporta contexto consultable. El historial no caduca automáticamente. “Eliminar historial” elimina definitivamente; todavía no hay papelera. Sentinel supervisa salud técnica y, por separado, puede revisar mensajes nuevos con Gemini si habilitas cada instancia en su roster.</p>
+    <p class="settings-note">La revisión automática de Sentinel se activa por instancia con su casilla del roster. Solo analiza los primeros 6000 caracteres de mensajes visibles y estabilizados de esa Relay, usando Gemini; puede enviar texto de conversaciones autenticadas, no guarda ese texto en el diario y no modifica código ni ejecuta acciones. Los mensajes que ya estaban en pantalla al activar la opción no se analizan. Desactivar la casilla detiene nuevas revisiones. Cada llamada consume cuota de Gemini.</p>
+    <div class="context-controls">
+      <button type="button" onclick="loadWorkspaceContext()">Ver eventos recientes</button>
+      <button id="workspace-context-previous" type="button" onclick="pageWorkspaceContext(-1)" disabled>Más antiguos</button>
+      <button id="workspace-context-next" type="button" onclick="pageWorkspaceContext(1)" disabled>Más recientes</button>
+      <button type="button" onclick="clearWorkspaceContext()">Eliminar historial</button>
+    </div>
+    <p id="workspace-context-summary" class="context-summary" role="status"></p>
+    <div id="workspace-context-events" class="context-events"></div>
+    <p class="settings-note">El registro es compartido entre las instancias del proyecto y puede crecer con el tiempo. Las consultas de agentes se hacen por páginas con offset/limit; el archivo íntegro no se recorta.</p>
+    <p id="workspace-settings-status" class="settings-status" role="status"></p>
+    <div class="settings-footer"><button type="submit">Listo</button></div>
+  </form>
+</dialog>
+<div id="inputbar">
+  <select id="destination" title="Destino del mensaje">
+    <option value="relay">Pool Workspace · coordinación automática o envío directo</option>
+    <option value="sentinel">Sentinel · chat normal con Gemini</option>
+  </select>
+  <label class="workspace-collaboration-control" title="Enviar la misma tarea a varios agentes IDE online y comparar resultados">
+    <input id="ide-collaboration-mode" type="checkbox">
+    Colaboración IDE
+  </label>
+  <input type="text" id="prompt" placeholder="Escribe al destino seleccionado..." autocomplete="off">
+  <button id="voice-input" type="button" onclick="toggleVoiceInput()" title="Dictar al destino seleccionado; el texto no se envía automáticamente">🎙 Dictar</button>
+  <button onclick="send()">Enviar</button>
+  <button class="btn-launch" onclick="launch()">+ Instancia</button>
+</div>
+<div id="voice-status" role="status" aria-live="polite"></div>
+
+<script>
+let ws=null, connected=false, currentView='classic', statusRefreshTimer=null
+let ideParticipants=new Map(), localParticipants=new Map(), workspaceTasks=[]
+let webInstances=[], sentinelChecks=new Map(), lastLocalInstances=[]
+let localConversationsCache=new Map() // platformId → {conversations, scannedAt}
+let selectedLocalConversations=new Map(), selectedLocalConversationModels=new Map(), uncertainLocalConversations=new Set()
+let localConversationThreads=new Map(), localConversationBusy=new Set(), loadedLocalConversationThreads=new Set()
+let instanceChatThreads=new Map(), instanceChatBusy=new Set(), instanceChatUncertain=new Set()
+let sentinelChatMessages=[], sentinelChatBusy=false, sentinelPendingLaunchProposal=null
+let workspaceSettingsSaving=false
+let workspaceContextOffset=0, workspaceContextCount=0
+let workspaceAlertEvents=new Map(), workspaceAlertCursor=0
+let savedWorkspaceSettings={restorePreviousMasterWorkers:true,resumePreviousMasterSession:false,saveCleanContext:false,captureWebConversations:false,sentinelAutoReview:false,sentinelReviewAgentIds:[]}
+let sentinelReviewAgentIds=new Set()
+let voiceRecognition=null
+let voiceDestination=''
+const selectedIdeIds=new Set()
+const shownWorkspaceMessageIds=new Set()
+
+// ── Helpers ──
+function $(id){ return document.getElementById(id) }
+function esc(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML }
+function ts(t){ return new Date(t).toLocaleTimeString() }
+
+function addWorkspaceAlert(event){
+  if(!event||!Number.isSafeInteger(event.sequence)||workspaceAlertEvents.has(event.sequence)) return
+  workspaceAlertEvents.set(event.sequence,event)
+  workspaceAlertCursor=Math.max(workspaceAlertCursor,event.sequence)
+  while(workspaceAlertEvents.size>100) workspaceAlertEvents.delete(workspaceAlertEvents.keys().next().value)
+  renderWorkspaceAlerts()
+}
+
+function renderWorkspaceAlerts(){
+  const list=$('workspace-alert-list')
+  if(!list) return
+  const events=[...workspaceAlertEvents.values()].sort((a,b)=>b.sequence-a.sequence)
+  $('workspace-alert-count').textContent=events.length?' · '+events.length:''
+  list.replaceChildren()
+  if(!events.length){
+    const empty=document.createElement('div')
+    empty.className='workspace-alert-empty'
+    empty.textContent='Todavía no hay avisos de lanzamiento.'
+    list.appendChild(empty)
+    return
+  }
+  for(const event of events){
+    const item=document.createElement('article')
+    item.className='workspace-alert-item'
+    const time=document.createElement('time')
+    time.dateTime=event.timestamp
+    time.textContent=new Date(event.timestamp).toLocaleString()
+    const text=document.createElement('p')
+    const details=event.details||{}
+    text.textContent=event.event==='relay:launch-instance-failure'
+      ?String(details.failure||'Fallo de instancia sin detalle.')
+      :String(details.summary||`${details.failureCount||0} instancia(s) no quedaron disponibles en el lanzamiento ${details.status||''}.`)
+    item.append(time,text)
+    const assign=document.createElement('button')
+    assign.type='button'
+    assign.className='workspace-alert-assign'
+    assign.textContent='Asignar revisión a IDEs seleccionadas'
+    assign.addEventListener('click',()=>assignWorkspaceAlertToIdes(event,assign))
+    item.appendChild(assign)
+    list.appendChild(item)
+  }
+}
+
+async function loadWorkspaceAlerts(){
+  const status=$('workspace-alert-status')
+  if(!status) return
+  status.textContent='Cargando avisos...'
+  try{
+    const afterSequence=workspaceAlertEvents.size?workspaceAlertCursor:0
+    const response=await fetch('/api/workspace/activity?afterSequence='+afterSequence+'&limit=100')
+    const result=await response.json()
+    if(!response.ok) throw new Error(result.error||`HTTP ${response.status}`)
+    for(const event of result.events||[]) addWorkspaceAlert(event)
+    workspaceAlertCursor=Math.max(workspaceAlertCursor,Number(result.nextSequence)||0)
+    status.textContent=result.truncated
+      ?'Mostrando avisos retenidos; parte de la actividad antigua ya expiró.'
+      :'Avisos recientes del proceso local.'
+  }catch(error){
+    status.textContent='No se pudieron cargar los avisos: '+String(error)
+  }
+}
+
+async function assignWorkspaceAlertToIdes(event,button){
+  const participantIds=[...selectedIdeIds].filter(id=>ideParticipants.get(id)?.status!=='offline')
+  if(!participantIds.length){
+    $('workspace-alert-status').textContent='Activa Colaboración IDE y selecciona al menos una IDE conectada.'
+    return
+  }
+  const details=event.details||{}
+  const diagnostic=event.event==='relay:launch-instance-failure'
+    ?String(details.failure||'Fallo de instancia sin detalle.')
+    :String(details.summary||`${details.failureCount||0} instancias fallidas.`)
+  const prompt='Revisa este aviso real del lanzamiento de instancias del Workspace y diagnostica la causa probable. '+
+    'No modifiques código ni abras, cierres o reinicies instancias. Distingue evidencia de hipótesis y recomienda '+
+    'la siguiente comprobación segura.\n\nAviso:\n'+diagnostic
+  button.disabled=true
+  try{
+    const response=await fetch('/api/workspace/assign',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({participantIds,prompt}),
+    })
+    const result=await response.json()
+    if(!response.ok) throw new Error(result.error||`HTTP ${response.status}`)
+    const tasks=new Map(workspaceTasks.map(task=>[task.id,task]))
+    for(const task of result) tasks.set(task.id,task)
+    workspaceTasks=[...tasks.values()]
+    renderWorkspaceTasks()
+    renderWorkspaceRoster()
+    $('workspace-alert-status').textContent='Aviso asignado a '+result.length+' IDE(s) para diagnóstico.'
+  }catch(error){
+    $('workspace-alert-status').textContent='No se pudo asignar el aviso: '+String(error)
+  }finally{
+    button.disabled=false
+  }
+}
+
+// ── View switching (instantáneo, sin reconexión) ──
+function switchView(view){
+  currentView = view
+  $('view-classic').style.display = view==='classic' ? 'flex' : 'none'
+  $('view-canvas').style.display  = view==='canvas'  ? 'flex' : 'none'
+  $('btn-classic').className = 'view-btn' + (view==='classic' ? ' active' : '')
+  $('btn-canvas').className  = 'view-btn' + (view==='canvas'  ? ' active' : '')
+  localStorage.setItem('workspace-view', view)
+}
+
+// ── WebSocket ──
+function connect(){
+  ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host)
+  ws.onopen=()=>{connected=true;$('conn').textContent='Conectado';$('conn').className='ok';loadAgents();loadCanvas();loadWorkspaceAlerts()}
+  ws.onclose=()=>{connected=false;$('conn').textContent='Desconectado';$('conn').className='err';setTimeout(connect,3000)}
+  ws.onmessage=e=>{try{handle(JSON.parse(e.data))}catch(err){console.error('ws',err)}}
+}
+
+function handle(d){
+  if(d.type==='catchup'){d.events.forEach(handle)}
+  else if(d.type==='conversation'||d.type==='sentinel-update'){addMsg(d)}
+  else if(d.type==='instance-chat-message'){receiveInstanceChatMessage(d.data)}
+  else if(d.type==='workspace-alert'){addWorkspaceAlert(d.data)}
+  else if(d.type==='sentinel-monitor-update'){renderSentinelScan(d.data)}
+  else if(d.type==='agent-update'){updatePanel(d.data);scheduleWorkspaceStatusRefresh()}
+  else if(d.type==='master-update'){scheduleWorkspaceStatusRefresh()}
+  else if(d.type==='task-update'){updatePanel(d.data)}
+  else if(d.type==='canvas-update'){renderCanvasUpdate(d.data)}
+  else if(d.type==='workspace-participant-update'){
+    ideParticipants.set(d.data.id,d.data)
+    if(d.data.status==='offline') selectedIdeIds.delete(d.data.id)
+    renderWorkspaceRoster()
+  }
+  else if(d.type==='workspace-task-update'){workspaceTasks=workspaceTasks.filter(task=>task.id!==d.data.id).concat(d.data);renderWorkspaceTasks();renderWorkspaceRoster()}
+  else if(d.type==='workspace-message-update'){renderWorkspaceMessage(d.data)}
+  else if(d.type==='local-instance-update'){scheduleWorkspaceStatusRefresh()}
+}
+
+function renderWorkspaceMessage(message){
+  if(shownWorkspaceMessageIds.has(message.id)) return
+  shownWorkspaceMessageIds.add(message.id)
+  addMsg({timestamp:message.timestamp,data:{role:'ide',text:'['+message.displayName+'] '+message.text}})
+}
+
+function renderSentinelChat(){
+  document.querySelectorAll('[data-sentinel-chat-history]').forEach(history=>{
+    history.replaceChildren()
+    if(!sentinelChatMessages.length){
+      const empty=document.createElement('div')
+      empty.className='instance-chat-message status'
+      empty.textContent='Inicia una conversación. Sentinel responde con Gemini y conserva este hilo localmente para este proyecto.'
+      history.appendChild(empty)
+    }
+    for(const entry of sentinelChatMessages){
+      const bubble=document.createElement('div')
+      bubble.className='instance-chat-message '+entry.role
+      const time=document.createElement('time')
+      time.textContent=new Date(entry.timestamp).toLocaleTimeString()
+      time.style.cssText='display:block;font-size:8px;opacity:.7;margin-bottom:2px'
+      const text=document.createElement('span')
+      text.textContent=(entry.role==='error'?'Error: ':entry.role==='status'?'Actividad: ':'')+entry.text
+      bubble.append(time,text)
+      history.appendChild(bubble)
+    }
+    if(sentinelPendingLaunchProposal){
+      const proposal=document.createElement('div')
+      proposal.className='sentinel-launch-proposal'
+      proposal.textContent='Propuesta sin ejecutar: '+sentinelPendingLaunchProposal.count+
+        ' Relay(s) de '+sentinelPendingLaunchProposal.platformId+
+        ' en modo agente y perfil limpio. Puede requerirse inicio de sesión en cada perfil.'
+      const confirm=document.createElement('button')
+      confirm.type='button'
+      confirm.textContent='Confirmar lanzamiento'
+      confirm.addEventListener('click',()=>confirmSentinelLaunch(sentinelPendingLaunchProposal,confirm))
+      proposal.appendChild(document.createElement('br'))
+      proposal.appendChild(confirm)
+      history.appendChild(proposal)
+    }
+    history.scrollTop=history.scrollHeight
+  })
+}
+async function loadSentinelChatHistory(){
+  document.querySelectorAll('[data-sentinel-chat-send]').forEach(button=>button.disabled=true)
+  try{
+    const response=await fetch('/api/workspace/sentinel-chat')
+    const result=await response.json()
+    if(!response.ok)throw new Error(result.error||'No se pudo cargar la conversación guardada.')
+    sentinelChatMessages=result.messages||[]
+    renderSentinelChat()
+    document.querySelectorAll('[data-sentinel-chat-status]').forEach(node=>{
+      node.textContent='Historial local del proyecto · '+sentinelChatMessages.length+' mensajes'
+    })
+    document.querySelectorAll('[data-sentinel-chat-send]').forEach(button=>button.disabled=false)
+  }catch(error){
+    document.querySelectorAll('[data-sentinel-chat-status]').forEach(node=>{
+      node.textContent='No se pudo cargar el historial Sentinel: '+String(error)+' · Puedes enviar un mensaje nuevo.'
+    })
+  }finally{
+    if(!sentinelChatBusy){
+      document.querySelectorAll('[data-sentinel-chat-input],[data-sentinel-chat-send]').forEach(node=>node.disabled=false)
+    }
+  }
+}
+async function saveSentinelChatEvent(text){
+  const response=await fetch('/api/workspace/sentinel-chat/event',{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text}),
+  })
+  const result=await response.json()
+  if(!response.ok)throw new Error(result.error||'No se pudo guardar la actividad de Sentinel.')
+  sentinelChatMessages=result.messages||sentinelChatMessages
+  renderSentinelChat()
+}
+async function sendSentinelChatMessage(text,input){
+  const prompt=text.trim()
+  if(!prompt||sentinelChatBusy)return false
+  if(prompt.length>4000){
+    document.querySelectorAll('[data-sentinel-chat-status]').forEach(node=>node.textContent='El mensaje no puede superar 4.000 caracteres.')
+    return false
+  }
+  sentinelChatBusy=true
+  sentinelPendingLaunchProposal=null
+  sentinelChatMessages=[...sentinelChatMessages,{
+    id:'pending-'+Date.now(),instanceId:'sentinel',conversationId:'main',
+    role:'user',text:prompt,timestamp:Date.now(),
+  }]
+  renderSentinelChat()
+  if(input)input.value=''
+  document.querySelectorAll('[data-sentinel-chat-input],[data-sentinel-chat-send]').forEach(node=>node.disabled=true)
+  const startedAt=Date.now()
+  document.querySelectorAll('[data-sentinel-chat-send]').forEach(button=>button.textContent='Esperando…')
+  const updateWaiting=()=>{
+    const elapsed=Math.floor((Date.now()-startedAt)/1000)
+    document.querySelectorAll('[data-sentinel-chat-status]').forEach(node=>{
+      node.textContent='Gemini está preparando la respuesta ('+elapsed+' s). No reenvíes este mensaje.'
+    })
+  }
+  updateWaiting()
+  const timer=setInterval(updateWaiting,1000)
+  try{
+    const response=await fetch('/api/workspace/sentinel-chat',{
+      method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:prompt}),
+    })
+    const result=await response.json()
+    if(!response.ok)throw new Error(result.error||'Sentinel no pudo responder.')
+    sentinelChatMessages=result.messages||[]
+    sentinelPendingLaunchProposal=result.launchProposal||null
+    renderSentinelChat()
+    document.querySelectorAll('[data-sentinel-chat-status]').forEach(node=>{
+      node.textContent='Respuesta recibida de Gemini · '+Math.ceil((Date.now()-startedAt)/1000)+' s · guardada localmente'
+    })
+    return true
+  }catch(error){
+    let errorMessage=String(error)
+    try{
+      const historyResponse=await fetch('/api/workspace/sentinel-chat')
+      const historyResult=await historyResponse.json()
+      if(!historyResponse.ok)throw new Error(historyResult.error||'No se pudo recargar el historial.')
+      sentinelChatMessages=historyResult.messages||[]
+    }catch(historyError){
+      errorMessage+=' · No se pudo actualizar el historial local: '+String(historyError)
+      sentinelChatMessages=[...sentinelChatMessages,{
+        id:'error-'+Date.now(),instanceId:'sentinel',conversationId:'main',
+        role:'error',text:errorMessage,timestamp:Date.now(),
+      }]
+    }
+    renderSentinelChat()
+    document.querySelectorAll('[data-sentinel-chat-status]').forEach(node=>{
+      node.textContent='Error de conversación: '+errorMessage
+    })
+    return false
+  }finally{
+    clearInterval(timer)
+    sentinelChatBusy=false
+    document.querySelectorAll('[data-sentinel-chat-input],[data-sentinel-chat-send]').forEach(node=>node.disabled=false)
+    document.querySelectorAll('[data-sentinel-chat-send]').forEach(button=>button.textContent='Enviar')
+  }
+}
+async function confirmSentinelLaunch(request,button){
+  if(!window.confirm('OpenMCP lanzará '+request.count+' Relay(s) de '+request.platformId+' para el Workspace. Los perfiles limpios pueden requerir inicio de sesión. ¿Confirmas el lanzamiento?'))return
+  button.disabled=true
+  button.textContent='Iniciando...'
+  try{
+    const requestId='sentinel-'+crypto.randomUUID()
+    const response=await fetch('/api/launch?async=1',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({...request,requestId}),
+    })
+    const result=await response.json()
+    if(!response.ok)throw new Error(result.error||'No se pudo aceptar el lanzamiento.')
+    let operation=result.operation
+    for(let attempt=0;attempt<150&&operation?.status==='running';attempt++){
+      await new Promise(resolve=>setTimeout(resolve,2000))
+      const statusResponse=await fetch('/api/launch-operations?id='+encodeURIComponent(requestId))
+      const statusResult=await statusResponse.json()
+      if(!statusResponse.ok)throw new Error(statusResult.error||'No se pudo consultar el estado del lanzamiento.')
+      operation=statusResult.operation
+    }
+    const outcome=operation?.status==='succeeded'
+      ?'Lanzamiento completado: '+request.count+' Relay(s) solicitados en '+request.platformId+'.'
+      :operation?.status==='failed'
+        ?'Lanzamiento fallido: '+(operation.error||'sin detalle')
+        :'Resultado aún no confirmado. Revisa Alertas de lanzamiento antes de intentar de nuevo.'
+    await saveSentinelChatEvent(outcome)
+    document.querySelectorAll('[data-sentinel-chat-status]').forEach(node=>node.textContent=outcome)
+    sentinelPendingLaunchProposal=null
+    renderSentinelChat()
+  }catch(error){
+    button.disabled=false
+    button.textContent='Confirmar lanzamiento'
+    document.querySelectorAll('[data-sentinel-chat-status]').forEach(node=>{
+      node.textContent='No se pudo confirmar el lanzamiento: '+String(error)+' Revisa el historial antes de reintentar.'
+    })
+  }
+}
+
+function instanceChatKey(instanceId,conversationId){return instanceId+'\0'+conversationId}
+function renderInstanceChatHistory(container,instanceId,conversationId){
+  const history=container.querySelector('.instance-chat-history')
+  if(!history)return
+  history.replaceChildren()
+  const messages=instanceChatThreads.get(instanceChatKey(instanceId,conversationId))||[]
+  if(!messages.length){
+    const empty=document.createElement('div')
+    empty.textContent='Los mensajes enviados desde este panel se guardan localmente. El historial escrito directamente en la aplicación no se importa.'
+    empty.style.cssText='color:#8b949e;font-size:9px'
+    history.appendChild(empty)
+  }
+  for(const entry of messages){
+    const message=document.createElement('div')
+    message.className='instance-chat-message '+entry.role
+    message.textContent=(entry.role==='error'?'Error: ': '')+entry.text
+    history.appendChild(message)
+  }
+  history.scrollTop=history.scrollHeight
+}
+async function loadInstanceChatHistory(instanceId,conversationId,container){
+  const key=instanceChatKey(instanceId,conversationId)
+  try{
+    const response=await fetch('/api/workspace/instance-chat?instanceId='+encodeURIComponent(instanceId)+'&conversationId='+encodeURIComponent(conversationId))
+    const result=await response.json()
+    if(!response.ok)throw new Error(result.error||'No se pudo cargar el historial.')
+    instanceChatThreads.set(key,result.messages||[])
+    const latest=result.messages?.at(-1)
+    if(latest?.role==='error'||
+      (latest?.role==='status'&&/pendiente|no se pudo confirmar|revisa la instancia/i.test(latest.text))){
+      instanceChatUncertain.add(key)
+      const input=container.querySelector('.instance-chat-input')
+      const send=container.querySelector('.instance-chat-send[type="submit"]')
+      const confirm=container.querySelector('.instance-chat-send[type="button"]')
+      if(input)input.disabled=true
+      if(send)send.disabled=true
+      if(confirm)confirm.hidden=false
+      const status=container.querySelector('.instance-chat-status')
+      if(status)status.textContent='El resultado anterior es incierto. Revisa la instancia antes de habilitar otro envío.'
+    }
+    if(!instanceChatUncertain.has(key)){
+      const input=container.querySelector('.instance-chat-input')
+      const send=container.querySelector('.instance-chat-send[type="submit"]')
+      if(input)input.disabled=false
+      if(send)send.disabled=false
+    }
+    renderInstanceChatHistory(container,instanceId,conversationId)
+  }catch(error){
+    const status=container.querySelector('.instance-chat-status')
+    if(status)status.textContent='No se pudo cargar el historial: '+String(error)
+  }
+}
+async function loadInstanceChatContext(instanceId,container){
+  try{
+    const response=await fetch('/api/workspace/instance-chat/context?instanceId='+encodeURIComponent(instanceId))
+    const result=await response.json()
+    if(!response.ok)throw new Error(result.error||'No se pudo identificar la conversación activa.')
+    const conversationId=typeof result.conversationId==='string'&&result.conversationId
+      ?result.conversationId:'main'
+    container.dataset.conversationId=conversationId
+    container.dataset.contextReady='true'
+    await loadInstanceChatHistory(instanceId,conversationId,container)
+  }catch(error){
+    const status=container.querySelector('.instance-chat-status')
+    if(status)status.textContent='No se pudo identificar la conversación activa: '+String(error)
+  }
+}
+function receiveInstanceChatMessage(message){
+  if(!message||typeof message.instanceId!=='string'||typeof message.conversationId!=='string')return
+  const key=instanceChatKey(message.instanceId,message.conversationId)
+  const messages=instanceChatThreads.get(key)||[]
+  if(!messages.some(entry=>entry.id===message.id)){
+    messages.push(message)
+    if(messages.length>200)messages.splice(0,messages.length-200)
+    instanceChatThreads.set(key,messages)
+  }
+  document.querySelectorAll('.instance-chat-panel').forEach(container=>{
+    if(container.dataset.instanceChatId===message.instanceId&&container.dataset.conversationId===message.conversationId){
+      if(message.role==='error'||
+        (message.role==='status'&&/pendiente|no se pudo confirmar|revisa la instancia/i.test(message.text))){
+        instanceChatUncertain.add(key)
+        const input=container.querySelector('.instance-chat-input')
+        const send=container.querySelector('.instance-chat-send[type="submit"]')
+        const confirm=container.querySelector('.instance-chat-send[type="button"]')
+        if(input)input.disabled=true
+        if(send)send.disabled=true
+        if(confirm)confirm.hidden=false
+        const status=container.querySelector('.instance-chat-status')
+        if(status)status.textContent='El resultado es incierto. Revisa la instancia antes de volver a enviar.'
+      }
+      renderInstanceChatHistory(container,message.instanceId,message.conversationId)
+    }
+  })
+  if(message.instanceId.startsWith('local-')){
+    const localKey=localConversationThreadKey(message.instanceId,message.conversationId)
+    const localEntries=localConversationThreads.get(localKey)||[]
+    if(!localEntries.some(entry=>entry.id===message.id)){
+      localEntries.push({ ...message, timestamp:message.timestamp })
+      if(localEntries.length>200)localEntries.splice(0,localEntries.length-200)
+      localConversationThreads.set(localKey,localEntries)
+    }
+    const cached=localConversationsCache.get('antigravity')
+    document.querySelectorAll('[data-local-conversation-instance]').forEach(container=>{
+      if(container.dataset.localConversationInstance===message.instanceId&&cached)
+        renderConversationsList(cached.conversations,container,'antigravity',message.instanceId)
+    })
+  }
+}
+function createInstanceLaunchHistoryPanel(body,instanceId){
+  const details=document.createElement('details')
+  details.dataset.instanceLaunchHistory=''
+  const summary=document.createElement('summary')
+  summary.textContent='Historial de actividad'
+  const list=document.createElement('div')
+  list.dataset.instanceLaunchHistoryList=''
+  list.style.cssText='max-height:180px;overflow:auto;padding:4px 0'
+  details.append(summary,list)
+  details.addEventListener('toggle',()=>{
+    if(details.open)void loadInstanceLaunchHistory(instanceId,list)
+  })
+  body.appendChild(details)
+}
+async function loadInstanceLaunchHistory(instanceId,container){
+  try{
+    const response=await fetch('/api/workspace/instance-history?instanceId='+encodeURIComponent(instanceId))
+    const result=await response.json()
+    if(!response.ok)throw new Error(result.error||'No se pudo cargar el historial de actividad.')
+    container.replaceChildren()
+    if(!result.events?.length){
+      const empty=document.createElement('div')
+      empty.textContent='Todavía no hay eventos de lanzamiento para esta instancia.'
+      empty.style.cssText='color:#8b949e;font-size:9px'
+      container.appendChild(empty)
+      return
+    }
+    for(const event of result.events){
+      const item=document.createElement('div')
+      item.className='instance-launch-event '+event.status
+      const date=document.createElement('time')
+      date.dateTime=new Date(event.timestamp).toISOString()
+      date.textContent=new Date(event.timestamp).toLocaleString()
+      const detail=document.createElement('div')
+      detail.textContent=event.detail
+      item.append(date,detail)
+      container.appendChild(item)
+    }
+  }catch(error){
+    container.textContent='No se pudo cargar el historial: '+String(error)
+  }
+}
+function initializeInstanceChatPanel(panel,data,agentId){
+  const body=panel.querySelector('.panel-body')
+  if(!body)return
+  if((data.instanceType==='master'||data.instanceType==='local'||data.instanceType==='relay'||data.managedInstance)&&
+    !panel.querySelector('[data-instance-launch-history]'))
+    createInstanceLaunchHistoryPanel(body,agentId)
+  if(panel.querySelector('.instance-chat-panel')||panel.querySelector('[data-local-instance-chat]'))return
+  if(data.instanceType==='local'){
+    const details=document.createElement('details')
+    details.dataset.localInstanceChat=''
+    details.open=true
+    details.dataset.localPlatform=data.platformId
+    details.dataset.localInstanceId=agentId
+    const summary=document.createElement('summary')
+    summary.textContent='Chats y conversación'
+    const list=document.createElement('div')
+    list.dataset.localConversationsList=''
+    list.style.cssText='max-height:270px;overflow:auto;padding:4px 0'
+    details.append(summary,list)
+    body.appendChild(details)
+    details.dataset.loaded='true'
+    loadLocalConversations(data.platformId,list,agentId)
+    return
+  }
+  if(data.instanceType!=='master'&&data.instanceType!=='relay'&&!data.managedInstance)return
+  const conversationId='main'
+  const section=document.createElement('section')
+  section.className='instance-chat instance-chat-panel'
+  section.dataset.instanceChatId=agentId
+  section.dataset.conversationId=conversationId
+  const title=document.createElement('div')
+  title.className='instance-chat-title'
+  title.textContent='Conversación de esta instancia'
+  const refreshContext=document.createElement('button')
+  refreshContext.className='instance-chat-refresh'
+  refreshContext.type='button'
+  refreshContext.textContent='Actualizar conversación'
+  refreshContext.addEventListener('click',()=>void loadInstanceChatContext(agentId,section))
+  const history=document.createElement('div')
+  history.className='instance-chat-history'
+  const status=document.createElement('div')
+  status.className='instance-chat-status'
+  status.textContent='Identificando la conversación activa...'
+  const form=document.createElement('form')
+  form.className='instance-chat-form'
+  const input=document.createElement('textarea')
+  input.className='instance-chat-input'
+  input.rows=2
+  input.maxLength=8000
+  input.placeholder='Escribe directamente a esta instancia...'
+  input.disabled=true
+  const send=document.createElement('button')
+  send.className='instance-chat-send'
+  send.type='submit'
+  send.disabled=true
+  send.textContent='Enviar'
+  form.append(input,send)
+  const confirm=document.createElement('button')
+  confirm.type='button'
+  confirm.hidden=true
+  confirm.className='instance-chat-send'
+  confirm.textContent='Revisé la instancia; habilitar envío'
+  confirm.addEventListener('click',()=>{
+    instanceChatUncertain.delete(instanceChatKey(agentId,section.dataset.conversationId||conversationId))
+    input.disabled=false
+    send.disabled=false
+    confirm.hidden=true
+    status.textContent='Envío habilitado.'
+    input.focus()
+  })
+  form.addEventListener('submit',event=>{
+    event.preventDefault()
+    void sendInstanceChatMessage(agentId,section.dataset.conversationId||conversationId,input.value,section)
+  })
+  section.append(title,refreshContext,history,form,confirm,status)
+  body.appendChild(section)
+  renderInstanceChatHistory(section,agentId,conversationId)
+  void loadInstanceChatContext(agentId,section)
+}
+async function sendInstanceChatMessage(instanceId,conversationId,text,container){
+  const input=container.querySelector('.instance-chat-input')
+  const send=container.querySelector('.instance-chat-send[type="submit"]')
+  const status=container.querySelector('.instance-chat-status')
+  const confirm=container.querySelector('.instance-chat-send[type="button"]')
+  let key=instanceChatKey(instanceId,conversationId)
+  const prompt=text.trim()
+  if(!prompt||container.dataset.contextReady!=='true'||instanceChatBusy.has(key)||instanceChatUncertain.has(key))return
+  instanceChatBusy.add(key)
+  if(input)input.disabled=true
+  if(send){send.disabled=true;send.textContent='Esperando...'}
+  if(status)status.textContent='Enviando al destino exacto de esta tarjeta...'
+  let outcomeKnown=false
+  try{
+    const response=await fetch('/api/workspace/instance-chat',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({instanceId,text:prompt,conversationId}),
+    })
+    const result=await response.json()
+    outcomeKnown=true
+    if(typeof result.conversationId==='string'&&result.conversationId){
+      conversationId=result.conversationId
+      container.dataset.conversationId=conversationId
+      key=instanceChatKey(instanceId,conversationId)
+    }
+    if(result.messages)instanceChatThreads.set(key,result.messages)
+    renderInstanceChatHistory(container,instanceId,conversationId)
+    if(result.delivery==='unknown'||result.responseStatus==='pending'){
+      instanceChatUncertain.add(key)
+      if(confirm)confirm.hidden=false
+    }
+    if(!response.ok||!result.ok){
+      if(status)status.textContent=result.delivery==='unknown'
+        ?'No se pudo confirmar el resultado. Revisa la instancia antes de volver a enviar.'
+        :'No se envió el mensaje: '+(result.error||'No se pudo completar el envío.')
+      return
+    }
+    if(input)input.value=''
+    if(status)status.textContent=result.persistenceWarning||(
+      result.responseStatus==='pending'?'Mensaje enviado; la respuesta está pendiente.':
+      'Respuesta recibida y registrada localmente.')
+  }catch(error){
+    if(!outcomeKnown){
+      instanceChatUncertain.add(key)
+      if(confirm)confirm.hidden=false
+      if(status)status.textContent='No se pudo confirmar el resultado: '+String(error)
+    }else if(status){
+      status.textContent='No se pudo completar el envío: '+String(error)
+    }
+  }finally{
+    instanceChatBusy.delete(key)
+    if(input)input.disabled=instanceChatUncertain.has(key)
+    if(send){send.disabled=instanceChatUncertain.has(key);send.textContent='Enviar'}
+  }
+}
+
+// ── Conversations loader for local instances ──
+function localConversationThreadKey(instanceId,conversationId){return instanceId+'\0'+conversationId}
+function addLocalConversationEntry(instanceId,conversationId,entry){
+  const key=localConversationThreadKey(instanceId,conversationId)
+  const entries=localConversationThreads.get(key)||[]
+  entries.push({...entry,timestamp:Date.now()})
+  if(entries.length>200)entries.splice(0,entries.length-200)
+  localConversationThreads.set(key,entries)
+}
+function renderAntigravityConversationThread(instanceId,container){
+  const conversationId=selectedLocalConversations.get(instanceId)
+  const thread=document.createElement('div')
+  thread.style.cssText='margin-top:8px;padding-top:8px;border-top:1px solid #30363d'
+  const heading=document.createElement('div')
+  heading.style.cssText='font-size:10px;font-weight:600;color:#a3f5d6;margin-bottom:4px'
+  heading.textContent='Chat de esta instancia'+(selectedLocalConversationModels.get(instanceId)?' · '+selectedLocalConversationModels.get(instanceId):'')
+  thread.appendChild(heading)
+  const history=document.createElement('div')
+  history.style.cssText='max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;margin-bottom:6px'
+  const entries=conversationId?localConversationThreads.get(localConversationThreadKey(instanceId,conversationId))||[]:[]
+  if(!conversationId){
+    const hint=document.createElement('div')
+    hint.textContent='Elige un chat existente o crea uno nuevo para escribir aquí.'
+    hint.style.color='#8b949e'
+    history.appendChild(hint)
+  }else if(!entries.length){
+    const hint=document.createElement('div')
+    hint.textContent='Los mensajes enviados desde Workspace aparecerán aquí. El historial anterior sigue visible en Antigravity.'
+    hint.style.color='#8b949e'
+    history.appendChild(hint)
+  }
+  for(const entry of entries){
+    const message=document.createElement('div')
+    message.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;padding:5px 7px;border-radius:5px;font-size:10px;line-height:1.4;'+
+      (entry.role==='user'?'background:#1c3550;color:#dcecff;align-self:flex-end;max-width:90%':
+        entry.role==='assistant'?'background:#202b24;color:#e6edf3;align-self:flex-start;max-width:95%':'color:#e3b341')
+    message.textContent=entry.text
+    history.appendChild(message)
+  }
+  thread.appendChild(history)
+  const historyKey=localConversationThreadKey(instanceId,conversationId||'')
+  if(conversationId&&!loadedLocalConversationThreads.has(historyKey)){
+    loadedLocalConversationThreads.add(historyKey)
+    void fetch('/api/workspace/instance-chat?instanceId='+encodeURIComponent(instanceId)+'&conversationId='+encodeURIComponent(conversationId))
+      .then(async response=>{
+        const result=await response.json()
+        if(!response.ok)throw new Error(result.error||'No se pudo cargar el historial persistido.')
+        localConversationThreads.set(historyKey,(result.messages||[]).map(message=>({
+          role:message.role,text:message.text,timestamp:message.timestamp,
+        })))
+        const latest=result.messages?.at(-1)
+        if(latest?.role==='error'||
+          (latest?.role==='status'&&/pendiente|no se pudo confirmar|revisa la instancia/i.test(latest.text)))
+          uncertainLocalConversations.add(instanceId)
+        const cached=localConversationsCache.get('antigravity')
+        if(cached)document.querySelectorAll('[data-local-conversation-instance]').forEach(panel=>{
+          if(panel.dataset.localConversationInstance===instanceId)renderConversationsList(cached.conversations,panel,'antigravity',instanceId)
+        })
+      })
+      .catch(error=>{
+        loadedLocalConversationThreads.delete(historyKey)
+        addLocalConversationEntry(instanceId,conversationId,{role:'status',text:'No se pudo recuperar el historial: '+String(error)})
+      })
+  }
+  const composer=document.createElement('div')
+  composer.style.cssText='display:flex;gap:5px;align-items:flex-end'
+  const input=document.createElement('textarea')
+  input.rows=2
+  input.maxLength=8000
+  input.placeholder=conversationId?'Escribe a Antigravity en esta conversación...':'Selecciona un chat para escribir'
+  input.disabled=!conversationId||uncertainLocalConversations.has(instanceId)||localConversationBusy.has(instanceId)
+  input.style.cssText='flex:1;resize:vertical;min-width:0;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:5px;padding:6px;font:inherit;font-size:11px'
+  const send=document.createElement('button')
+  send.type='button'
+  send.textContent=localConversationBusy.has(instanceId)?'Esperando...':'Enviar'
+  send.disabled=input.disabled
+  send.style.cssText='padding:5px 8px;background:#163d2c;border:1px solid #36b37e;border-radius:4px;color:#a3f5d6;cursor:pointer;font-size:10px'
+  send.addEventListener('click',async()=>{
+    const text=input.value.trim()
+    if(!text||localConversationBusy.has(instanceId))return
+    try{
+      await sendAntigravityConversationMessage(instanceId,text)
+    }catch(error){
+      addLocalConversationEntry(instanceId,selectedLocalConversations.get(instanceId)||'',{role:'status',text:'Error: '+String(error)})
+      const cached=localConversationsCache.get('antigravity')
+      if(cached)renderConversationsList(cached.conversations,container,'antigravity',instanceId)
+    }
+  })
+  composer.append(input,send)
+  thread.appendChild(composer)
+  container.appendChild(thread)
+}
+async function sendAntigravityConversationMessage(instanceId,prompt){
+  const conversationId=selectedLocalConversations.get(instanceId)
+  if(!conversationId)throw new Error('Selecciona o crea una conversación antes de enviar.')
+  if(uncertainLocalConversations.has(instanceId))throw new Error('Revisa Antigravity y vuelve a confirmar la conversación antes de reenviar.')
+  if(localConversationBusy.has(instanceId))throw new Error('Ya hay un mensaje esperando respuesta en esta instancia.')
+  const expectedModel=selectedLocalConversationModels.get(instanceId)
+  if(!expectedModel)throw new Error('Abre de nuevo la conversación para verificar su modelo antes de enviar.')
+  localConversationBusy.add(instanceId)
+  addLocalConversationEntry(instanceId,conversationId,{role:'user',text:prompt})
+  const cached=localConversationsCache.get('antigravity')
+  document.querySelectorAll('[data-local-conversation-instance]').forEach(panel=>{
+    if(panel.dataset.localConversationInstance===instanceId&&cached)renderConversationsList(cached.conversations,panel,'antigravity',instanceId)
+  })
+  try{
+    const response=await fetch('/api/workspace/instance-chat',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({instanceId,text:prompt,conversationId,expectedModel}),
+    })
+    const result=await response.json()
+    if(!response.ok)throw new Error(result.error||'No se pudo enviar el mensaje.')
+    if(result.delivery==='unknown'||result.responseStatus==='pending')uncertainLocalConversations.add(instanceId)
+    if(result.model)selectedLocalConversationModels.set(instanceId,result.model)
+    if(conversationId==='new'&&result.conversationId){
+      const oldKey=localConversationThreadKey(instanceId,'new')
+      const newKey=localConversationThreadKey(instanceId,result.conversationId)
+      localConversationThreads.set(newKey,localConversationThreads.get(oldKey)||[])
+      localConversationThreads.delete(oldKey)
+      selectedLocalConversations.set(instanceId,result.conversationId)
+    }
+    const activeId=selectedLocalConversations.get(instanceId)||conversationId
+    if(result.messages)localConversationThreads.set(localConversationThreadKey(instanceId,activeId),result.messages.map(message=>({
+      role:message.role,text:message.text,timestamp:message.timestamp,
+    })))
+    else if(result.response)addLocalConversationEntry(instanceId,activeId,{role:'assistant',text:result.response})
+    else if(result.delivery==='unknown')addLocalConversationEntry(instanceId,activeId,{
+      role:'status',text:'No se pudo confirmar la entrega. Revisa Antigravity antes de intentar otro envío.'
+    })
+    else if(result.responseStatus==='pending')addLocalConversationEntry(instanceId,activeId,{
+      role:'status',text:'Mensaje aceptado; la respuesta de Antigravity sigue pendiente. No reenvíes el mismo mensaje.'
+    })
+    return result
+  }catch(error){
+    uncertainLocalConversations.add(instanceId)
+    throw error
+  }finally{
+    localConversationBusy.delete(instanceId)
+    if(cached){
+      document.querySelectorAll('[data-local-conversation-instance]').forEach(panel=>{
+        if(panel.dataset.localConversationInstance===instanceId)renderConversationsList(cached.conversations,panel,'antigravity',instanceId)
+      })
+    }
+  }
+}
+async function loadLocalConversations(platformId,container,instanceId){
+  container.textContent='Cargando conversaciones...'
+  container.style.display='block'
+  const details=container.closest('details')
+  const summary=details&&details.querySelector('summary')
+  if(summary) summary.textContent='Identificando chats...'
+  try{
+    const cached=localConversationsCache.get(platformId)
+    if(cached&&Date.now()-cached.scannedAt<30000){
+      renderConversationsList(cached.conversations,container,platformId,instanceId)
+      return
+    }
+    const r=await fetch('/api/workspace/local-conversations?platform='+encodeURIComponent(platformId))
+    const data=await r.json()
+    if(!r.ok) throw new Error(data.error||'Error al cargar')
+    if(data.error) throw new Error(data.error)
+    const convs=data.conversations||[]
+    localConversationsCache.set(platformId,{conversations:convs,scannedAt:Date.now()})
+    renderConversationsList(convs,container,platformId,instanceId)
+  }catch(e){
+    container.textContent='Error: '+e.message
+    container.style.color='#ff6b6b'
+    if(summary) summary.textContent='Error al identificar chats'
+  }
+}
+async function activateLocalConversation(instanceId,conversationId,platformId,container){
+  const status=container.querySelector('[data-local-conversation-status]')
+  if(conversationId==='new'&&uncertainLocalConversations.has(instanceId)){
+    if(status)status.textContent='El chat nuevo aún no tiene ID confirmado. Recarga el historial y selecciona el chat creado; no inicies otro envío.'
+    return
+  }
+  if(status) status.textContent='Abriendo chat en Antigravity...'
+  try{
+    const response=await fetch('/api/workspace/local-conversation/open',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({instanceId,conversationId}),
+    })
+    const result=await response.json()
+    if(!response.ok) throw new Error(result.error||'No se pudo abrir la conversación.')
+    selectedLocalConversations.set(instanceId,conversationId)
+    selectedLocalConversationModels.set(instanceId,result.model)
+    uncertainLocalConversations.delete(instanceId)
+    const participant=localParticipants.get(instanceId)
+    $('destination').value='local:'+instanceId
+    $('prompt').placeholder='Escribe un mensaje para '+(participant?.displayName||'Antigravity')+'...'
+    const cached=localConversationsCache.get(platformId)
+    if(cached) renderConversationsList(cached.conversations,container,platformId,instanceId)
+  }catch(error){
+    if(status) status.textContent='No se pudo abrir el chat: '+String(error)
+    else throw error
+  }
+}
+function renderConversationsList(conversations,container,platformId,instanceId){
+  container.replaceChildren()
+  if(instanceId) container.dataset.localConversationInstance=instanceId
+  const details=container.closest('details')
+  const summary=details&&details.querySelector('summary')
+  if(summary) summary.textContent='Chats identificados ('+conversations.length+')'
+  if(!conversations.length){
+    const empty=document.createElement('div')
+    empty.textContent='No se encontraron conversaciones.'
+    empty.style.color='#8b949e'
+    container.appendChild(empty)
+  }
+  const header=document.createElement('div')
+  header.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:4px'
+  const headerLabel=document.createElement('span')
+  headerLabel.style.cssText='font-size:10px;color:#8b949e'
+  headerLabel.textContent=conversations.length+' conversacion'+(conversations.length===1?'':'es')
+  const refreshBtn=document.createElement('button')
+  refreshBtn.type='button'
+  refreshBtn.style.cssText='font-size:9px;padding:1px 4px;background:transparent;border:1px solid #3d444d;border-radius:3px;color:#8b949e;cursor:pointer'
+  refreshBtn.textContent='↻'
+  refreshBtn.title='Recargar conversaciones'
+  refreshBtn.addEventListener('click',()=>{
+    localConversationsCache.delete(platformId)
+    loadLocalConversations(platformId,container,instanceId)
+  })
+  header.append(headerLabel,refreshBtn)
+  container.appendChild(header)
+  const note=document.createElement('div')
+  note.style.cssText='font-size:9px;color:#9baac1;margin-bottom:4px'
+  note.textContent=platformId==='antigravity'
+    ?'El índice no guarda el modelo: al abrir cada chat se verifica el modelo real mostrado por Antigravity. Los mensajes nuevos y sus respuestas aparecerán en este panel.'
+    :'Solo identificación: esta plataforma aún no permite reanudar una conversación desde aquí.'
+  container.appendChild(note)
+  const thisProject=conversations.filter(c=>c.isCurrentProject)
+  const others=conversations.filter(c=>!c.isCurrentProject)
+  const renderGroup=(convs,label)=>{
+    if(!convs.length) return
+    if(label){
+      const groupLabel=document.createElement('div')
+      groupLabel.style.cssText='font-size:9px;color:#a3f5d6;margin:4px 0 2px;font-weight:600'
+      groupLabel.textContent=label
+      container.appendChild(groupLabel)
+    }
+    for(const conv of convs){
+      const row=document.createElement('div')
+      row.style.cssText='display:flex;gap:6px;align-items:flex-start;padding:3px 4px;border-radius:3px;cursor:default;font-size:11px;line-height:1.3'
+      row.addEventListener('mouseenter',()=>row.style.background='#21262d')
+      row.addEventListener('mouseleave',()=>row.style.background='transparent')
+      const icon=document.createElement('span')
+      icon.style.cssText='flex-shrink:0;font-size:10px;margin-top:1px'
+      icon.textContent=conv.isCurrentProject?'📌':'💬'
+      const info=document.createElement('span')
+      info.style.cssText='flex:1;min-width:0'
+      const titleEl=document.createElement('div')
+      titleEl.style.cssText='color:#e6edf3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px'
+      titleEl.textContent=conv.title
+      titleEl.title=conv.title+(conv.projectPath?'\n📂 '+conv.projectPath:'')
+      const meta=document.createElement('div')
+      meta.style.cssText='color:#8b949e;font-size:9px;overflow-wrap:anywhere'
+      const parts=[]
+      if(conv.isActive) parts.push('activa ahora')
+      if(conv.messageCount) parts.push(conv.messageCount+' pasos')
+      if(conv.lastActiveAt){
+        const ago=Date.now()-conv.lastActiveAt
+        if(ago<60000) parts.push('ahora')
+        else if(ago<3600000) parts.push(Math.floor(ago/60000)+'m')
+        else if(ago<86400000) parts.push(Math.floor(ago/3600000)+'h')
+        else parts.push(Math.floor(ago/86400000)+'d')
+      }
+      if(conv.projectPath) parts.push(conv.projectPath.split(/[\\/]/).pop())
+      if(platformId==='antigravity'){
+        const verifiedModel=selectedLocalConversations.get(instanceId)===conv.id
+          ?selectedLocalConversationModels.get(instanceId):undefined
+        parts.push(verifiedModel?'modelo verificado: '+verifiedModel:'modelo sin verificar')
+      }
+      parts.push('ID: '+conv.id)
+      meta.textContent=parts.join(' · ')
+      info.append(titleEl,meta)
+      row.append(icon,info)
+      if(platformId==='antigravity'&&instanceId){
+        const useButton=document.createElement('button')
+        useButton.type='button'
+        useButton.style.cssText='flex-shrink:0;font-size:9px;padding:2px 5px;background:#163d2c;border:1px solid #36b37e;border-radius:3px;color:#a3f5d6;cursor:pointer'
+        const isSelected=selectedLocalConversations.get(instanceId)===conv.id
+        const needsConfirmation=isSelected&&uncertainLocalConversations.has(instanceId)
+        useButton.textContent=needsConfirmation?'Reconfirmar':isSelected?'En uso':'Usar chat'
+        useButton.disabled=isSelected&&!needsConfirmation
+        useButton.addEventListener('click',()=>activateLocalConversation(instanceId,conv.id,platformId,container))
+        row.appendChild(useButton)
+      }
+      container.appendChild(row)
+    }
+  }
+  if(platformId==='antigravity'&&instanceId){
+    const controls=document.createElement('div')
+    controls.style.cssText='display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:4px 0'
+    const newChat=document.createElement('button')
+    newChat.type='button'
+    newChat.style.cssText='font-size:9px;padding:2px 6px;background:#163d2c;border:1px solid #36b37e;border-radius:3px;color:#a3f5d6;cursor:pointer'
+    newChat.textContent='Nuevo chat'
+    newChat.addEventListener('click',()=>activateLocalConversation(instanceId,'new',platformId,container))
+    const selected=selectedLocalConversations.get(instanceId)
+    const selection=document.createElement('span')
+    selection.dataset.localConversationStatus=''
+    const model=selectedLocalConversationModels.get(instanceId)
+    selection.style.cssText='font-size:9px;color:#9baac1'
+    selection.textContent=selected
+      ?(uncertainLocalConversations.has(instanceId)
+        ?(selected==='new'
+          ?'Chat nuevo sin ID confirmado; recarga el historial y selecciona el chat creado. '
+          :'Envío/respuesta pendiente; verifica el chat y vuelve a seleccionarlo. ')
+        :(selected==='new'?'Chat nuevo seleccionado':'Chat '+selected.slice(0,12)+' seleccionado')+' · Modelo: '+(model||'desconocido'))
+      :'Elige un chat para poder enviarle mensajes.'
+    controls.append(newChat,selection)
+    container.appendChild(controls)
+    renderAntigravityConversationThread(instanceId,container)
+  }
+  renderGroup(thisProject,'📌 Este proyecto')
+  renderGroup(others,thisProject.length?'💬 Otras conversaciones':null)
+}
+
+function renderWorkspaceRoster(){
+  const roster=$('workspace-roster')
+  roster.replaceChildren()
+
+  // ── Local instances section ──
+  const locals=[...localParticipants.values()]
+  if(locals.length){
+    const localHeading=document.createElement('div')
+    localHeading.className='workspace-roster-heading'
+    const localTitle=document.createElement('div')
+    localTitle.className='workspace-roster-title'
+    localTitle.textContent='🖥 Instancias Locales'
+    localTitle.style.color='#a3f5d6'
+    const localCount=document.createElement('div')
+    localCount.className='workspace-roster-count'
+    const localOnline=locals.filter(p=>p.status!=='offline').length
+    localCount.textContent=localOnline+' activa'+(localOnline===1?'':'s')+' · '+locals.length+' total'
+    localHeading.append(localTitle,localCount)
+    roster.appendChild(localHeading)
+    for(const participant of locals){
+      // Find matching local instance data for account info
+      const liData=lastLocalInstances.find(li=>li.id===participant.id)
+      const card=document.createElement('div')
+      card.className='workspace-participant'
+      card.style.borderColor='#36b37e'
+      const selected=$('destination').value==='local:'+participant.id
+      if(selected) card.classList.add('is-selected')
+      const avatar=document.createElement('span')
+      avatar.className='participant-avatar'
+      avatar.setAttribute('aria-hidden','true')
+      avatar.style.background='#163d2c'
+      avatar.style.color='#a3f5d6'
+      avatar.textContent=participant.provider.toUpperCase().slice(0,2)
+      const details=document.createElement('span')
+      details.className='participant-details'
+      const name=document.createElement('span')
+      name.className='participant-name'
+      name.textContent=participant.displayName
+      // Account label
+      const accountLine=document.createElement('span')
+      accountLine.className='participant-activity'
+      accountLine.style.color='#a3f5d6'
+      accountLine.textContent=liData?.accountLabel?'👤 '+liData.accountLabel:'Sin cuenta configurada'
+      const actText=document.createElement('span')
+      actText.className='participant-activity'
+      actText.textContent=participant.activity||'Instancia local lista'
+      const status=document.createElement('span')
+      status.className='participant-presence '+(participant.status||'offline')
+      status.textContent=participant.status==='busy'?'Procesando':participant.status==='offline'?'Desconectado':'Lista'
+      details.append(name,accountLine,actText)
+
+      // Quick action buttons row
+      const actions=document.createElement('span')
+      actions.style.cssText='display:flex;gap:4px;align-items:center;flex-shrink:0'
+      const selectBtn=document.createElement('button')
+      selectBtn.type='button'
+      selectBtn.className='participant-open'
+      selectBtn.textContent='Enviar →'
+      selectBtn.title='Seleccionar como destino de prompt'
+      selectBtn.disabled=participant.status==='offline'&&
+        !(liData?.platformId==='antigravity'&&liData.status==='ready')
+      selectBtn.addEventListener('click',()=>{
+        $('destination').value='local:'+participant.id
+        $('prompt').placeholder='Escribe un prompt para '+participant.displayName+'...'
+        $('prompt').focus()
+        renderWorkspaceRoster()
+      })
+      const accountBtn=document.createElement('button')
+      accountBtn.type='button'
+      accountBtn.className='participant-open'
+      accountBtn.style.cssText='font-size:10px;padding:2px 6px;background:#163d2c;border:1px solid #36b37e;border-radius:3px;color:#a3f5d6;cursor:pointer'
+      accountBtn.textContent='👤'
+      accountBtn.title='Cambiar cuenta activa'
+      accountBtn.addEventListener('click',(e)=>{
+        e.stopPropagation()
+        const label=window.prompt('Etiqueta de cuenta para '+participant.displayName+':',liData?.accountLabel||'')
+        if(label===null) return
+        fetch('/api/workspace/local-account',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({instanceId:participant.id,accountLabel:label||undefined}),
+        }).then(r=>r.json()).then(()=>scheduleWorkspaceStatusRefresh()).catch(()=>{})
+      })
+      actions.append(accountBtn,selectBtn)
+      // Conversations toggle button
+      const convsBtn=document.createElement('button')
+      convsBtn.type='button'
+      convsBtn.className='participant-open'
+      convsBtn.style.cssText='font-size:10px;padding:2px 6px;background:#163d2c;border:1px solid #36b37e;border-radius:3px;color:#a3f5d6;cursor:pointer'
+      convsBtn.textContent='📂'
+      convsBtn.title='Ver conversaciones de esta plataforma'
+      const convsPanel=document.createElement('div')
+      convsPanel.style.cssText='display:none;grid-column:1/-1;padding:6px 8px;border-top:1px solid #30363d;margin-top:6px;max-height:260px;overflow-y:auto'
+      convsBtn.addEventListener('click',(e)=>{
+        e.stopPropagation()
+        if(convsPanel.style.display==='block'){
+          convsPanel.style.display='none'
+          convsBtn.style.background='#163d2c'
+        }else{
+          convsBtn.style.background='#1a4a35'
+          const pid=liData?.platformId||participant.provider.toLowerCase().replace(/\s+/g,'-')
+          loadLocalConversations(pid,convsPanel,participant.id)
+        }
+      })
+      actions.append(convsBtn)
+      card.style.display='grid'
+      card.style.gridTemplateColumns='auto 1fr auto auto'
+      card.style.alignItems='center'
+      card.append(avatar,details,status,actions,convsPanel)
+      roster.appendChild(card)
+    }
+  }
+
+  // ── IDE agents section ──
+  const participants=[...ideParticipants.values()]
+  const onlineCount=participants.filter(participant=>participant.status!=='offline').length
+  const heading=document.createElement('div')
+  heading.className='workspace-roster-heading'
+  const title=document.createElement('div')
+  title.className='workspace-roster-title'
+  title.textContent='Agentes IDE'
+  const count=document.createElement('div')
+  count.className='workspace-roster-count'
+  const groupMode=$('ide-collaboration-mode').checked
+  count.textContent=groupMode
+    ?selectedIdeIds.size+' seleccionados para colaborar · '+onlineCount+' disponibles'
+    :participants.length?onlineCount+' conectado'+(onlineCount===1?'':'s')+' · '+participants.length+' total':'Aún no hay IDEs conectadas'
+  heading.append(title,count)
+  roster.appendChild(heading)
+  if(!participants.length&&!locals.length){
+    const empty=document.createElement('div')
+    empty.className='workspace-empty'
+    empty.textContent='Lanza una instancia local o conecta una IDE para verla aquí.'
+    roster.appendChild(empty)
+  }else if(!participants.length){
+    const empty=document.createElement('div')
+    empty.className='workspace-empty'
+    empty.textContent='Conecta Copilot, Cursor, Claude Code u otra IDE para verla aquí.'
+    roster.appendChild(empty)
+  }
+  for(const participant of participants){
+    const card=document.createElement('button')
+    card.type='button'
+    card.className='workspace-participant'
+    const selected=groupMode
+      ?selectedIdeIds.has(participant.id)
+      :$('destination').value==='ide:'+participant.id
+    if(selected) card.classList.add('is-selected')
+    card.setAttribute('aria-pressed',String(selected))
+    card.title=groupMode
+      ?(selected?'Quitar ':'Incluir ')+participant.displayName+' en la tarea colaborativa'
+      :'Seleccionar '+participant.displayName+' como destino de una tarea'
+    card.disabled=participant.status==='offline'
+    const avatar=document.createElement('span')
+    avatar.className='participant-avatar'
+    avatar.setAttribute('aria-hidden','true')
+    avatar.textContent=participant.provider.toUpperCase().slice(0,2)
+    const details=document.createElement('span')
+    details.className='participant-details'
+    const latestTask=[...workspaceTasks].reverse().find(task=>task.participantId===participant.id)
+    const name=document.createElement('span')
+    name.className='participant-name'
+    name.textContent=participant.displayName+' · '+participant.provider
+    const status=document.createElement('span')
+    status.className='participant-presence '+(participant.status||'offline')
+    status.textContent=participant.status==='busy'?'Ocupado':participant.status==='idle'?'Inactivo':participant.status==='offline'?'Desconectado':'Disponible'
+    const activity=document.createElement('span')
+    activity.className='participant-activity'
+    activity.textContent=participant.activity||(latestTask?'Tarea: '+latestTask.status:'Participante del workspace')
+    const action=document.createElement('span')
+    action.className='participant-open'
+    action.textContent='Asignar →'
+    details.append(name,activity)
+    card.append(avatar,details,status,action)
+    card.addEventListener('click',()=>{
+      if($('ide-collaboration-mode').checked){
+        if(selectedIdeIds.has(participant.id)) selectedIdeIds.delete(participant.id)
+        else selectedIdeIds.add(participant.id)
+        renderWorkspaceRoster()
+        return
+      }
+      $('destination').value='ide:'+participant.id
+      $('prompt').placeholder='Escribe una tarea para '+participant.displayName+'...'
+      $('prompt').focus()
+      renderWorkspaceRoster()
+    })
+    roster.appendChild(card)
+  }
+}
+
+function renderWorkspaceTasks(){
+  const board=$('workspace-task-board')
+  board.replaceChildren()
+  const groups=new Map()
+  for(const task of workspaceTasks){
+    const key=task.collaborationId||task.id
+    const group=groups.get(key)||[]
+    group.push(task)
+    groups.set(key,group)
+  }
+  const recent=[...groups.values()].slice(-8)
+  const total=workspaceTasks.length
+  const heading=document.createElement('div')
+  heading.className='workspace-task-heading'
+  const title=document.createElement('div')
+  title.className='workspace-task-title'
+  title.textContent='Tareas IDE'
+  const count=document.createElement('div')
+  count.className='workspace-task-count'
+  count.textContent=total?total+' tareas · '+recent.length+' entregas recientes':'Las tareas y resultados aparecerán aquí.'
+  heading.append(title,count)
+  board.appendChild(heading)
+  if(!recent.length){
+    const empty=document.createElement('div')
+    empty.className='workspace-empty'
+    empty.textContent='Selecciona uno o varios agentes IDE y envíales una tarea desde abajo.'
+    board.appendChild(empty)
+    return
+  }
+  for(const group of recent){
+    const card=document.createElement('section')
+    card.className='workspace-task-group'
+    const prompt=document.createElement('div')
+    prompt.className='workspace-task-prompt'
+    prompt.textContent=group[0].collaborationId?'Colaboración · '+group[0].prompt:group[0].prompt
+    const members=document.createElement('div')
+    members.className='workspace-task-members'
+    for(const task of group){
+      const member=document.createElement('div')
+      member.className='workspace-task-member'
+      const header=document.createElement('div')
+      header.className='workspace-task-member-header'
+      const participant=ideParticipants.get(task.participantId)
+      const name=document.createElement('span')
+      name.textContent=participant?.displayName||task.participantId
+      const status=document.createElement('span')
+      status.className='workspace-task-member-status '+task.status
+      status.textContent=task.status==='pending'?'Pendiente':task.status==='claimed'?'En curso':task.status==='completed'?'Completada':'Fallida'
+      header.append(name,status)
+      member.appendChild(header)
+      if(task.response||task.error){
+        const result=document.createElement('div')
+        result.className='workspace-task-response'
+        result.textContent=(task.error?'Error: '+task.error:task.response).slice(0,1200)
+        member.appendChild(result)
+      }
+      members.appendChild(member)
+    }
+    card.append(prompt,members)
+    board.appendChild(card)
+  }
+}
+
+function updateDestinationOptions(data){
+  const destination=$('destination')
+  if(!destination) return
+  const selected=destination.value
+  destination.querySelectorAll('option[data-relay],option[data-master],option[data-ide],option[data-local]').forEach(option=>option.remove())
+  for(const agent of data.agents||[]){
+    if(!agent.inWebRelayPool||!agent.role||agent.role.startsWith('manual-user-')) continue
+    const option=document.createElement('option')
+    option.value='relay:'+agent.agentId
+    option.dataset.relay='true'
+    const role=agent.role==='primary'?'coordinador':agent.role
+    option.textContent='Relay: '+role+' · '+(agent.platformId||'web')+(agent.debugPort?' · :'+agent.debugPort:'')+(agent.status==='ready'?'':' — '+agent.status)
+    option.disabled=agent.status!=='ready'
+    destination.appendChild(option)
+  }
+  for(const master of data.masterSessions||[]){
+    const option=document.createElement('option')
+    option.value=master.workspaceWorker?'relay:master-session:'+master.id:'master:'+master.id
+    if(master.workspaceWorker) option.dataset.relay='true'
+    else option.dataset.master='true'
+    option.textContent=(master.workspaceWorker?'Worker Master: ':'Master: ')+master.name+' ('+master.platformId+')'+(master.error?' — error de perfil':master.active&&master.authenticated?'':master.authenticationState==='unverified'?' — sesión no verificada':' — no lista')
+    option.disabled=!master.active||!master.authenticated||Boolean(master.error)
+    destination.appendChild(option)
+  }
+
+  // Separate local instances from IDE participants
+  const localParticipantIds=new Set((data.localInstances||[]).filter(li=>li.status!=='removed').map(li=>li.id))
+  ideParticipants=new Map((data.workspaceParticipants||[]).filter(p=>!localParticipantIds.has(p.id)).map(participant=>[participant.id,participant]))
+  localParticipants=new Map((data.workspaceParticipants||[]).filter(p=>localParticipantIds.has(p.id)).map(participant=>[participant.id,participant]))
+  lastLocalInstances=(data.localInstances||[]).filter(li=>li.status!=='removed')
+  workspaceTasks=data.workspaceTasks||workspaceTasks
+  for(const id of selectedIdeIds){
+    if(ideParticipants.get(id)?.status==='offline') selectedIdeIds.delete(id)
+  }
+
+  // Add local instances as separate destinations with "Local:" prefix
+  for(const li of (data.localInstances||[]).filter(li=>li.status!=='removed')){
+    const option=document.createElement('option')
+    option.value='local:'+li.id
+    option.dataset.local='true'
+    const participant=localParticipants.get(li.id)
+    const statusLabel=li.status==='ready'?'':'— '+li.status
+    option.textContent='Local: '+li.platformName+' · PID '+(li.pid||'?')+' '+statusLabel
+    option.disabled=li.status!=='ready'||(participant?.status==='offline')
+    destination.appendChild(option)
+  }
+
+  // Add IDE participants (non-local)
+  for(const participant of ideParticipants.values()){
+    const option=document.createElement('option')
+    option.value='ide:'+participant.id
+    option.dataset.ide='true'
+    option.textContent='IDE: '+participant.displayName+' ('+participant.provider+')'+(participant.status==='offline'?' — desconectado':'')
+    option.disabled=participant.status==='offline'
+    destination.appendChild(option)
+  }
+  if(Array.from(destination.options).some(option=>option.value===selected)) destination.value=selected
+  const selectedOption=destination.selectedOptions[0]
+  $('prompt').placeholder=selectedOption?.value.startsWith('local:')
+    ?'Escribe un prompt para '+selectedOption.textContent.replace(/^Local:\s*/,'')+'...'
+    :selectedOption?.value.startsWith('ide:')
+    ?'Escribe una tarea para '+selectedOption.textContent.replace(/^IDE:\s*/,'')+'...'
+      :selectedOption?.value.startsWith('relay:')
+        ?'Escribe directamente a '+selectedOption.textContent.replace(/^Relay:\s*/,'')+'...'
+        :selectedOption?.value==='sentinel'
+          ?'Escribe a Sentinel; Gemini responderá tras tu confirmación...'
+        :'Escribe al destino seleccionado...'
+  renderWorkspaceRoster()
+  renderWorkspaceTasks()
+}
+
+$('destination').addEventListener('change',()=>{
+  const option=$('destination').selectedOptions[0]
+  $('prompt').placeholder=option?.value.startsWith('local:')
+    ?'Escribe un prompt para '+option.textContent.replace(/^Local:\s*/,'')+'...'
+    :option?.value.startsWith('ide:')
+    ?'Escribe una tarea para '+option.textContent.replace(/^IDE:\s*/,'')+'...'
+    :option?.value.startsWith('relay:')
+      ?'Escribe directamente a '+option.textContent.replace(/^Relay:\s*/,'')+'...'
+      :option?.value==='sentinel'
+        ?'Escribe a Sentinel; Gemini responderá tras tu confirmación...'
+      :'Escribe al destino seleccionado...'
+  renderWorkspaceRoster()
+})
+
+$('ide-collaboration-mode').addEventListener('change',()=>{
+  selectedIdeIds.clear()
+  if($('ide-collaboration-mode').checked){
+    for(const participant of ideParticipants.values()){
+      if(participant.status!=='offline') selectedIdeIds.add(participant.id)
+    }
+    $('prompt').placeholder='Escribe una tarea común para los IDEs seleccionados...'
+  }else{
+    $('prompt').placeholder='Escribe al destino seleccionado...'
+  }
+  renderWorkspaceRoster()
+})
+
+function displayWorkspaceAgentName(role,agentId){
+  if(role==='primary') return 'Orquestador Web'
+  const coordinatorMatch=/^orchestrator-(\d+)$/.exec(role||'')
+  if(coordinatorMatch) return 'Orquestador Web '+coordinatorMatch[1]
+  if(role?.startsWith('worker-')) return 'Worker '+role.slice('worker-'.length)
+  return role||agentId
+}
+
+function renderInstanceRoster(data){
+  const workspaceParticipantsById=new Map((data.workspaceParticipants||[]).map(participant=>[participant.id,participant]))
+  webInstances=[
+    ...(data.agents||[]).filter(agent=>agent.status!=='stopped').map(agent=>({
+      id:agent.agentId,
+      name:displayWorkspaceAgentName(agent.role,agent.agentId),
+      kind:agent.sessionMode==='clean'?'Relay · Clean':'Relay',
+      instanceType:agent.sessionMode==='clean'?'clean':'',
+      status:agent.status,
+      detail:(agent.platformId||'web')+(agent.debugPort?' · :'+agent.debugPort:''),
+      inspectable:agent.status==='ready',
+      role:agent.role||'Relay',
+      sessionMode:agent.sessionMode||'sin dato',
+      debugPort:agent.debugPort,
+      activeExecutions:agent.activeExecutions??0,
+      unknownExecutions:agent.unknownExecutions??0,
+      instanceId:agent.instanceId,
+      lastHeartbeat:agent.lastHeartbeat,
+    })),
+    ...(data.masterSessions||[]).map(master=>({
+      id:master.id,
+      name:master.name,
+      kind:'Master · '+master.platformId,
+      instanceType:'master',
+      status:master.active?(master.authenticationState==='unverified'?'sesión no verificada':master.authenticated?'autenticada':'requiere iniciar sesión'):'cerrada',
+      detail:master.debugPort?':'+master.debugPort:'',
+      workspaceWorker:master.workspaceWorker,
+      active:master.active,
+      authenticated:master.authenticated,
+      authenticationState:master.authenticationState,
+      debugPort:master.debugPort,
+    })),
+    ...(data.localInstances||[]).filter(li=>li.status!=='removed').map(li=>({
+      id:li.id,
+      name:li.platformName+' (local)',
+      kind:'Local · '+li.platformName,
+      instanceType:'local',
+      platformId:li.platformId,
+      status:li.status,
+      detail:'PID '+(li.pid||'?')+(li.workingDirectory?' · '+li.workingDirectory:''),
+      workspaceWorker:li.workspaceWorker,
+      workspaceParticipant:workspaceParticipantsById.get(li.id),
+      pid:li.pid,
+    })),
+  ]
+  const roster=$('instance-roster')
+  const previousCardState=new Map(Array.from(roster.children).map(card=>[
+    card.dataset.rosterKey,
+    Array.from(card.querySelectorAll('details')).map(details=>details.open),
+  ]))
+  const focusedCard=roster.contains(document.activeElement)?document.activeElement.closest('.workspace-instance'):null
+  const focusedKey=focusedCard?.dataset.rosterKey
+  const focusedInspect=Boolean(focusedCard?.querySelector('.instance-sentinel-inspect')===document.activeElement)
+  const scrollTop=roster.scrollTop
+  const scrollLeft=roster.scrollLeft
+  roster.replaceChildren()
+  for(const instance of webInstances){
+    if(instance.instanceType==='local'){
+      updatePanel({
+        agentId:instance.id,
+        name:instance.name,
+        status:instance.status,
+        platformId:instance.platformId,
+        instanceType:'local',
+        managedInstance:true,
+        statusText:instance.status==='ready'?'Aplicación lista':instance.status,
+      })
+    }
+    const card=document.createElement('div')
+    card.className='workspace-instance'
+    card.dataset.rosterKey=(instance.instanceType==='master'?'master:':instance.instanceType==='local'?'local:':'relay:')+instance.id
+    if(instance.instanceType) card.classList.add(instance.instanceType)
+    if(instance.instanceType!=='master'&&instance.instanceType!=='local') card.dataset.sentinelAgent=instance.id
+    const check=instance.instanceType==='master'||instance.instanceType==='local'?undefined:sentinelChecks.get(instance.id)
+    const sentinelIssue=Boolean(check&&(
+      !check.portAlive||check.swActive===false||check.mcpAlive===false||check.diagnostics?.length
+    ))
+    const name=document.createElement('span')
+    name.textContent=instance.kind+': '+instance.name
+    const localPresence=instance.workspaceParticipant?.status
+    const localStatusClass=instance.status!=='ready'
+      ?'offline'
+      :localPresence==='online'||localPresence==='idle'
+        ?'ok'
+        :localPresence==='busy'
+          ?'busy'
+          :'offline'
+    const localStatusLabel=instance.status!=='ready'
+      ?instance.status
+      :!instance.workspaceWorker
+        ?'ready · no es worker del Workspace'
+        :localPresence==='online'
+          ?'ready · activo en Workspace'
+          :localPresence==='idle'
+            ?'ready · disponible en Workspace'
+            :localPresence==='busy'
+              ?'ready · ocupado'
+              :'ready · sin conexión Workspace'
+    const status=document.createElement('span')
+    status.className='instance-status '+(
+      instance.instanceType==='local'
+        ?localStatusClass
+        :(instance.status==='ready'&&check&&!sentinelIssue)||
+          (instance.instanceType==='master'&&instance.active&&instance.authenticated)
+            ?'ok'
+            :instance.status==='cerrada'||instance.status==='stopped'?'offline':'busy'
+    )
+    status.dataset.runnerStatus=instance.status
+    status.textContent=instance.instanceType==='local'
+      ?localStatusLabel
+      :instance.status+(instance.instanceType==='master'
+        ?''
+        :!check?' · Sentinel sin medir':sentinelIssue?' · revisar':'')
+    const facts=document.createElement('div')
+    facts.className='instance-facts'
+    if(instance.instanceType==='master'){
+      facts.textContent=(instance.workspaceWorker?'Worker registrado':'No participa como worker')+
+        ' · '+(instance.active?'perfil abierto':'perfil cerrado')+
+        ' · '+(instance.authenticated?'sesión autenticada':'sesión no verificada')+
+        (instance.debugPort?' · CDP :'+instance.debugPort:'')+
+        ' · estado Master consultado por Workspace; no incluido en el escaneo técnico de Relay'
+    }else if(instance.instanceType==='local'){
+      const presenceLabel=!instance.workspaceWorker
+        ?'no participa como worker'
+        :!instance.workspaceParticipant
+          ?'presencia no confirmada'
+          :instance.workspaceParticipant.status==='offline'
+            ?'desconectada; no puede reclamar tareas'
+            :instance.workspaceParticipant.status==='busy'
+              ?'ocupada'
+              :'activa'
+      facts.textContent=(instance.workspaceWorker?'Worker configurado':'No registrado como worker')+
+        ' · Presencia Workspace: '+presenceLabel+
+        ' · '+instance.detail+
+        ' · Instancia local (sin CDP/Sentinel) · Abre Chats y conversación en la tarjeta superior para cargar y usar un chat.'
+    }else{
+      const sa=check?.saConfiguration
+      facts.textContent='Rol: '+instance.role+' · Sesión: '+instance.sessionMode+
+        ' · Plataforma: '+instance.detail+' · Ejecuciones activas: '+instance.activeExecutions+
+        ' · Resultado desconocido: '+instance.unknownExecutions+
+        (instance.lastHeartbeat?' · Último heartbeat: '+new Date(instance.lastHeartbeat).toLocaleTimeString():' · Sin heartbeat registrado')+
+        (instance.instanceId?' · ID: '+instance.instanceId:'')
+      const observed=document.createElement('div')
+      observed.className='instance-sentinel-status'
+      observed.dataset.sentinelStatus=''
+      observed.textContent='Sentinel: '+(check
+        ?'CDP '+(check.portAlive?'activo':'sin respuesta')+
+          ' · SA Worker '+(check.swActive===null?'no comprobado':check.swActive?'activo':'inactivo')+
+          ' · MCP '+(check.mcpAlive===null?'no comprobado':check.mcpAlive?'disponible':'sin respuesta')+
+          (check.saConfiguration?' · SA inspeccionado':' · SA aún no inspeccionado')
+        :'esperando escaneo')
+      facts.appendChild(observed)
+      const details=document.createElement('details')
+      details.dataset.sentinelControls=''
+      const summary=document.createElement('summary')
+      summary.textContent='Controles y diagnóstico observados'
+      const values=document.createElement('div')
+      values.className='sentinel-values'
+      values.textContent=sa?formatSentinelConfiguration(sa):'Aún no hay configuración SA inspeccionada.'
+      details.append(summary,values)
+      facts.appendChild(details)
+      const diagnosticDetails=document.createElement('details')
+      diagnosticDetails.dataset.sentinelDiagnostics=''
+      diagnosticDetails.hidden=!check?.diagnostics?.length
+      const diagnosticSummary=document.createElement('summary')
+      diagnosticSummary.className='sentinel-diagnostic-summary'
+      diagnosticSummary.textContent='Incidencias Sentinel ('+(check?.diagnostics?.length||0)+')'
+      const diagnostics=document.createElement('div')
+      diagnostics.className='sentinel-diagnostic-list'
+      diagnostics.textContent=(check?.diagnostics||[]).map(item=>item.severity+': '+item.message).join('\n')
+      diagnosticDetails.append(diagnosticSummary,diagnostics)
+      facts.appendChild(diagnosticDetails)
+    }
+    card.append(name,status,facts)
+    if(instance.instanceType!=='master'&&instance.instanceType!=='local'&&instance.status==='ready'){
+      const reviewLabel=document.createElement('label')
+      reviewLabel.className='instance-sentinel-review'
+      const reviewToggle=document.createElement('input')
+      reviewToggle.type='checkbox'
+      reviewToggle.checked=sentinelReviewAgentIds.has(instance.id)
+      reviewToggle.disabled=!savedWorkspaceSettings.sentinelAutoReview
+      reviewToggle.addEventListener('change',()=>setSentinelReviewForAgent(instance.id,reviewToggle.checked))
+      reviewLabel.append(reviewToggle,document.createTextNode(' Sentinel analiza mensajes visibles con Gemini'))
+      card.appendChild(reviewLabel)
+    }
+    if(instance.inspectable){
+      const inspect=document.createElement('button')
+      inspect.type='button'
+      inspect.className='instance-sentinel-inspect'
+      inspect.textContent='Revisar chat con Sentinel'
+      inspect.title='Requiere confirmación. Inspecciona hasta 12 mensajes visibles de este Relay y los envía a Gemini; no conserva el contenido.'
+      inspect.addEventListener('click',()=>reviewRelayWithSentinel(instance.id,inspect))
+      card.appendChild(inspect)
+    }
+    roster.appendChild(card)
+  }
+  for(const card of roster.children){
+    const openDetails=previousCardState.get(card.dataset.rosterKey)||[]
+    card.querySelectorAll('details').forEach((details,index)=>{
+      if(index<openDetails.length) details.open=openDetails[index]
+      if(details.open&&details.dataset.localPlatform&&details.dataset.loaded!=='true'){
+        details.dataset.loaded='true'
+        const list=details.querySelector('[data-local-conversations-list]')
+        if(list) loadLocalConversations(details.dataset.localPlatform,list,details.dataset.localInstanceId)
+      }
+    })
+  }
+  roster.scrollTop=scrollTop
+  roster.scrollLeft=scrollLeft
+  if(focusedInspect){
+    const card=Array.from(roster.children).find(item=>item.dataset.rosterKey===focusedKey)
+    card?.querySelector('.instance-sentinel-inspect')?.focus({preventScroll:true})
+  }
+}
+
+function formatSentinelConfiguration(sa){
+  return 'MCP SA: '+String(sa.mcpEnabled)+
+    ' · Push: '+String(sa.pushContentMode)+
+    ' · Auto Insert: '+String(sa.autoInsert)+
+    ' · Auto Submit: '+String(sa.autoSubmit)+
+    ' · Auto Execute: '+String(sa.autoExecute)+
+    ' · Sidebar: '+String(sa.sidebarVisible)+
+    ' ('+String(sa.sidebarCollapsed===true?'colapsada':sa.sidebarCollapsed===false?'expandida':'colapso no medido')+')'+
+    ' · Botón compacto: '+String(sa.compactButtonVisible)+
+    ' (en composer: '+String(sa.compactButtonInComposer)+')'+
+    (sa.pluginRegistry?' · Plugins: '+(sa.pluginRegistry.initialized?'inicializado':'no inicializado')+
+      ' ('+sa.pluginRegistry.plugins.length+' plugins / '+sa.pluginRegistry.factories.length+' factories)':'')
+}
+
+function updateSentinelCardObservations(){
+  document.querySelectorAll('.workspace-instance[data-sentinel-agent]').forEach(card=>{
+    const check=sentinelChecks.get(card.dataset.sentinelAgent)
+    const status=card.querySelector('[data-sentinel-status]')
+    const statusBadge=card.querySelector('.instance-status')
+    if(statusBadge){
+      const runnerStatus=statusBadge.dataset.runnerStatus||'desconocido'
+      const hasIssue=Boolean(check&&(
+        !check.portAlive||check.swActive===false||check.mcpAlive===false||check.diagnostics?.length
+      ))
+      statusBadge.className='instance-status '+(
+        runnerStatus==='ready'&&check&&!hasIssue?'ok':runnerStatus==='cerrada'?'offline':'busy'
+      )
+      statusBadge.textContent=runnerStatus+(!check?' · Sentinel sin medir':hasIssue?' · revisar':'')
+    }
+    if(status) status.textContent='Sentinel: '+(check
+      ?'CDP '+(check.portAlive?'activo':'sin respuesta')+
+        ' · SA Worker '+(check.swActive===null?'no comprobado':check.swActive?'activo':'inactivo')+
+        ' · MCP '+(check.mcpAlive===null?'no comprobado':check.mcpAlive?'disponible':'sin respuesta')+
+        (check.saConfiguration?' · SA inspeccionado':' · SA aún no inspeccionado')
+      :'esperando escaneo')
+    const values=card.querySelector('.sentinel-values')
+    if(values) values.textContent=check?.saConfiguration
+      ?formatSentinelConfiguration(check.saConfiguration)
+      :'Aún no hay configuración SA inspeccionada.'
+    const diagnostics=card.querySelector('[data-sentinel-diagnostics]')
+    if(diagnostics){
+      const items=check?.diagnostics||[]
+      diagnostics.hidden=items.length===0
+      const summary=diagnostics.querySelector('.sentinel-diagnostic-summary')
+      if(summary) summary.textContent='Incidencias Sentinel ('+items.length+')'
+      const list=diagnostics.querySelector('.sentinel-diagnostic-list')
+      if(list) list.textContent=items.map(item=>item.severity+': '+item.message).join('\n')
+    }
+  })
+}
+
+// ── Messages (se duplican en ambas vistas para mantener estado) ──
+function addMsg(e){
+  const text = ts(e.timestamp)+' '+(e.data?.text||'')
+  const cls = 'msg '+(e.data?.role||'worker')
+  ;['classic-msgs','canvas-msgs'].forEach(id=>{
+    const c=$(id); if(!c) return
+    const div=document.createElement('div')
+    div.className=cls
+    const content=document.createElement('span')
+    content.textContent=text
+    div.appendChild(content)
+    if(e.data?.role==='user'&&typeof e.data?.text==='string'&&e.data.text.trim()){
+      const review=document.createElement('button')
+      review.type='button'
+      review.className='sentinel-review-button'
+      review.textContent='Pedir sugerencia a Sentinel'
+      review.title='Solo se enviará a Gemini el texto de este mensaje del Workspace después de confirmarlo.'
+      review.addEventListener('click',()=>requestSentinelSuggestion(review,e.data.text))
+      div.appendChild(review)
+    }
+    if(e.data?.role==='sentinel'&&String(e.data?.text||'').startsWith('[Revisión automática autorizada')){
+      const handoff=document.createElement('button')
+      handoff.type='button'
+      handoff.className='sentinel-review-button'
+      handoff.textContent='Preparar verificación para el destino elegido'
+      handoff.title='Prepara una solicitud con el hallazgo de Sentinel; tú decides el destino y pulsas Enviar.'
+      handoff.addEventListener('click',()=>prepareSentinelFinding(handoff,e.data.text))
+      div.appendChild(handoff)
+    }
+    c.appendChild(div); c.scrollTop=c.scrollHeight
+  })
+}
+
+function prepareSentinelFinding(button,finding){
+  if(!window.confirm('Se colocará solo el hallazgo de Sentinel en el borrador. Elige un orquestador/worker como destino y pulsa Enviar para compartirlo. ¿Continuar?')) return
+  $('prompt').value='Verifica este hallazgo de Sentinel usando el código o contexto del proyecto que tengas disponible. Distingue hechos de hipótesis y no cambies código sin autorización explícita.\n\n'+finding
+  $('prompt').focus()
+  button.textContent='Borrador preparado; aún no enviado'
+}
+
+async function requestSentinelSuggestion(button,text){
+  if(!window.confirm('Se enviará a la API Gemini configurada el texto exacto de este mensaje del Workspace para que Sentinel sugiera posibles mejoras o verificaciones. No se envía automáticamente ni se guarda en la memoria temporal. ¿Continuar?')) return
+  button.disabled=true
+  button.textContent='Consultando a Sentinel…'
+  try{
+    const response=await fetch('/api/workspace/sentinel-suggestion',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({text}),
+    })
+    const result=await response.json()
+    if(!response.ok) throw new Error(result.error||'No se pudo consultar a Sentinel.')
+    button.textContent='Sugerencia enviada a la conversación'
+    button.disabled=true
+  }catch(error){
+    button.disabled=false
+    button.textContent='Pedir sugerencia a Sentinel'
+    addMsg({timestamp:Date.now(),data:{role:'sentinel',text:'No se pudo generar la sugerencia: '+String(error)}})
+  }
+}
+
+async function scanSentinelWorkspace(button){
+  const original=button.textContent
+  button.disabled=true
+  button.textContent='Escaneando…'
+  document.querySelectorAll('.sentinel-monitor-status').forEach(node=>node.textContent='Revisando salud técnica de los Relays activos; este escaneo no lee conversaciones.')
+  try{
+    const response=await fetch('/api/workspace/sentinel-scan',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})
+    const result=await response.json()
+    if(!response.ok) throw new Error(result.error||'No se pudo ejecutar el diagnóstico Sentinel.')
+    renderSentinelScan(result)
+  }catch(error){
+    document.querySelectorAll('.sentinel-monitor-status').forEach(node=>node.textContent='Falló el escaneo: '+String(error))
+  }finally{
+    button.disabled=false
+    button.textContent=original
+  }
+}
+
+function renderSentinelScan(result){
+  sentinelChecks=new Map((result?.details||[]).map(detail=>[detail.agentId,detail]))
+  const checked=Number(result?.agentsChecked)||0
+  const issues=Number(result?.issuesFound)||0
+  const scanTime=result?.scannedAt?new Date(result.scannedAt).toLocaleTimeString():''
+  document.querySelectorAll('.sentinel-monitor-status').forEach(node=>{
+    node.textContent=checked
+      ?'Escaneo '+scanTime+': '+checked+' Relay(s), '+issues+' incidencia(s) técnica(s). No se leyó contenido de chat.'
+      :'Sin Relays listos para inspeccionar.'+(scanTime?' · Último escaneo '+scanTime:'')
+  })
+  const lines=(result?.details||[]).map(detail=>{
+    const agent=webInstances.find(instance=>instance.id===detail.agentId)
+    const label=agent?.name||detail.agentId||'Relay'
+    const diagnostics=(detail.diagnostics||[]).map(item=>item.message).join(' · ')
+    return label+': '+(detail.portAlive?'CDP activo':'CDP no disponible')+
+      (diagnostics?' — '+diagnostics:' — sin incidencias detectadas')
+  })
+  document.querySelectorAll('.sentinel-monitor-results').forEach(node=>node.textContent=lines.join('\n'))
+  updateSentinelCardObservations()
+}
+
+async function reviewRelayWithSentinel(agentId,button){
+  if(!window.confirm('Sentinel leerá por CDP hasta los últimos 12 mensajes visibles del Relay seleccionado (máximo 1.200 caracteres por mensaje) y enviará ese snapshot a la API Gemini configurada para analizarlo. Una revisión local bloqueará valores con apariencia de credencial. No se modifica ni se guarda el chat. ¿Autorizar esta inspección de '+agentId+'?')) return
+  button.disabled=true
+  button.textContent='Revisando…'
+  try{
+    const response=await fetch('/api/workspace/sentinel-inspect',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({agentId,userConfirmed:true}),
+    })
+    const result=await response.json()
+    if(!response.ok) throw new Error(result.error||'No se pudo revisar el Relay.')
+    button.textContent='Revisión enviada al Workspace'
+  }catch(error){
+    button.disabled=false
+    button.textContent='Revisar chat con Sentinel'
+    addMsg({timestamp:Date.now(),data:{role:'sentinel',text:'No se pudo revisar '+agentId+': '+String(error)}})
+  }
+}
+
+// ── Worker panels (se crean en ambas vistas, con botones de acción) ──
+const statusMap = {
+  created:'off', starting:'busy', chrome_ready:'busy', session_ready:'busy',
+  extension_loading:'busy', service_worker_ready:'busy', mcp_ready:'busy', sa_preparing:'busy', startup_verifying:'busy',
+  ready:'ok', stopping:'busy', stopped:'off', error:'err', lost:'err', restarting:'busy'
+}
+const statusLabels = { sa_preparing:'Preparando SA', startup_verifying:'Verificando instrucciones iniciales' }
+function updatePanel(data){
+  if(!data) return
+  const agentId = data.agentId || data.taskId || 'unknown'
+  if(data.status==='stopped'&&!data.keepStopped){
+    ;['classic','canvas'].forEach(prefix=>$(prefix+'-p-'+agentId)?.remove())
+    return
+  }
+  ;['classic','canvas'].forEach(prefix=>{
+    const containerId = prefix+'-instances'
+    const panelId = prefix+'-p-'+agentId
+    let p=$(panelId)
+    if(!p){
+      p=document.createElement('div'); p.className='panel'; p.id=panelId
+      const label = data.name || data.role || agentId
+      const header=document.createElement('div')
+      header.className='panel-header'
+      const name=document.createElement('span')
+      name.className='panel-name'
+      name.textContent=label
+      const status=document.createElement('span')
+      status.className='panel-status '+(statusMap[data.status]||'busy')
+      status.textContent=data.statusText||statusLabels[data.status]||data.status||'?'
+      header.append(name,status)
+      if(data.managedInstance||data.instanceType==='master'||data.instanceType==='local'){
+        const close=document.createElement('button')
+        close.className='panel-close'
+        close.type='button'
+        close.textContent='×'
+        close.setAttribute('aria-label',data.instanceType==='local'
+          ?data.status==='stopped'?'Retirar instancia local '+label:'Desconectar '+label
+          :data.instanceType==='master'
+          ?data.instanceActive?'Cerrar Master '+label:'Quitar Master '+label+' del Workspace'
+          :data.status==='stopped'?'Retirar Relay '+label+' del Workspace':'Cerrar Relay '+label)
+        close.title=data.instanceType==='local'
+          ?data.status==='stopped'
+            ?'Retirar esta instancia local del Workspace'
+            :'Desconectar del Workspace; no cierra la aplicación'
+          :data.instanceType==='master'
+          ?data.instanceActive
+            ?'Cerrar Chrome; conservar perfil, credenciales y rol de worker'
+            :'Quitar el rol worker del Workspace; conservar el perfil Master'
+          :data.status==='stopped'
+            ?(data.sessionMode==='clean'||p.dataset.sessionMode==='clean'
+              ?'Retirar esta instancia detenida; se borrará su memoria temporal Clean asociada'
+              :'Retirar esta instancia detenida y quitar su registro del Workspace')
+            :'Cerrar Relay; conservar su registro para poder reiniciarla'
+        close.onclick=()=>panelAction(
+          data.instanceType==='local'
+            ?data.status==='stopped'?'remove':'stop'
+            :data.instanceType==='master'
+            ?data.instanceActive?'close':'unregister'
+            :data.status==='stopped'?'remove':'close',
+          agentId,
+        )
+        header.appendChild(close)
+      }
+      p.appendChild(header)
+      const body=document.createElement('div')
+      body.className='panel-body'
+      p.appendChild(body)
+      if(data.managedInstance||data.instanceType==='master'){
+        const actions=document.createElement('div')
+        actions.className='panel-actions'
+        const actionButton=document.createElement('button')
+        actionButton.className='panel-action'
+        actionButton.type='button'
+        actionButton.textContent=data.instanceType==='master'
+          ?(data.instanceActive?'Reiniciar':'Abrir')
+          :'Reiniciar'
+        actionButton.setAttribute('aria-label',actionButton.textContent+' '+label)
+        actionButton.title=data.instanceType==='master'
+          ?'Abrir/reiniciar la Master y preparar SuperAssistant'
+          :'Reiniciar el Relay con su configuración actual'
+        actionButton.onclick=()=>panelAction(
+          data.instanceType==='master'&&!data.instanceActive?'open':'restart',
+          agentId,
+        )
+        actions.appendChild(actionButton)
+        p.appendChild(actions)
+      }
+      $(containerId)?.appendChild(p)
+    }
+    p.dataset.managedInstance=String(Boolean(data.managedInstance||data.instanceType==='master'||data.instanceType==='local'||p.dataset.managedInstance==='true'))
+    if(data.sessionMode) p.dataset.sessionMode=data.sessionMode
+    if(data.instanceType) p.dataset.instanceType=data.instanceType
+    else if(data.managedInstance&&!p.dataset.instanceType) p.dataset.instanceType='relay'
+    const instanceType=data.instanceType||p.dataset.instanceType
+    p.classList.toggle('instance-master',instanceType==='master')
+    p.classList.toggle('instance-local',instanceType==='local')
+    p.classList.toggle('instance-clean',instanceType!=='master'&&instanceType!=='local'&&(data.sessionMode||p.dataset.sessionMode)==='clean')
+    p.classList.toggle('instance-coordinator',data.role==='primary')
+    initializeInstanceChatPanel(p,{...data,instanceType},agentId)
+    const header=p.querySelector('.panel-header')
+    const name=header?.querySelector('.panel-name')
+    if(name&&data.name) name.textContent=data.name
+    if(header){
+      header.querySelectorAll('.instance-kind-badge').forEach(badge=>badge.remove())
+      const badges=[]
+      if(data.role==='primary') badges.push(['coordinator','Orquestador'])
+      if(instanceType==='master') badges.push(['master','Master'])
+      else if(instanceType==='local') badges.push(['local','Local'])
+      else if((data.sessionMode||p.dataset.sessionMode)==='clean') badges.push(['clean','Clean'])
+      else if((data.sessionMode||p.dataset.sessionMode)==='chrome-profile') badges.push(['profile','Perfil Chrome'])
+      const closeButton=header.querySelector('.panel-close')
+      for(const [type,label] of badges){
+        const badge=document.createElement('span')
+        badge.className='instance-kind-badge '+type
+        badge.textContent=label
+        header.insertBefore(badge,closeButton)
+      }
+    }
+    if(data.status){
+      const s=p.querySelector('.panel-status')
+      if(s){s.textContent=data.statusText||statusLabels[data.status]||data.status; s.className='panel-status '+(statusMap[data.status]||'busy')}
+    }
+    const close=p.querySelector('.panel-close')
+    if(close){
+      close.setAttribute('aria-label',instanceType==='local'
+        ?data.status==='stopped'?'Retirar instancia local '+(data.name||agentId):'Desconectar '+(data.name||agentId)
+        :instanceType==='master'
+        ?data.instanceActive?'Cerrar Master '+(data.name||agentId):'Quitar Master '+(data.name||agentId)+' del Workspace'
+        :data.status==='stopped'?'Retirar Relay '+(data.name||agentId)+' del Workspace':'Cerrar Relay '+(data.name||agentId))
+      close.title=instanceType==='local'
+        ?'Desconectar del Workspace; no cierra la aplicación'
+        :instanceType==='master'
+        ?data.instanceActive
+          ?'Cerrar Chrome; conservar perfil, credenciales y rol de worker'
+          :'Quitar el rol worker del Workspace; conservar el perfil Master'
+        :data.status==='stopped'
+          ?(data.sessionMode==='clean'||p.dataset.sessionMode==='clean'
+            ?'Retirar esta instancia detenida; se borrará su memoria temporal Clean asociada'
+            :'Retirar esta instancia detenida y quitar su registro del Workspace')
+          :'Cerrar Relay; conservar su registro para poder reiniciarla'
+      close.onclick=()=>panelAction(
+        instanceType==='local'
+          ?data.status==='stopped'?'remove':'stop'
+          :instanceType==='master'
+          ?data.instanceActive?'close':'unregister'
+          :data.status==='stopped'?'remove':'close',
+        agentId,
+      )
+    }
+    const actionButton=p.querySelector('.panel-action')
+    if(actionButton&&instanceType==='master'){
+      actionButton.textContent=data.instanceActive?'Reiniciar':'Abrir'
+      actionButton.setAttribute('aria-label',actionButton.textContent+' '+(data.name||agentId))
+      actionButton.onclick=()=>panelAction(data.instanceActive?'restart':'open',agentId)
+      actionButton.title=data.instanceActive
+        ?'Reiniciar la Master y volver a preparar SuperAssistant'
+        :'Abrir la Master y preparar SuperAssistant'
+    }
+    if(data.activity){
+      const b=p.querySelector('.panel-body')
+      if(b){const d=document.createElement('div');d.className='act '+(data.activity.type||'reasoning');d.textContent=data.activity.text;b.appendChild(d);b.scrollTop=b.scrollHeight}
+    }
+  })
+}
+
+function updateMasterWorkerPanels(masterSessions){
+  for(const master of masterSessions||[]){
+    const agentId='master-session:'+master.id
+    updatePanel({
+      agentId,
+      name:(master.workspaceWorker?'Worker Master · ':'Master · ')+master.name,
+      role:master.workspaceWorker?'worker':'master',
+      instanceType:'master',
+      sessionMode:'authenticated',
+      instanceActive:master.active,
+      managedInstance:true,
+      platformId:master.platformId,
+      status:master.error?'error':!master.active?'lost':master.authenticationState==='unverified'?'busy':!master.authenticated?'error':'ready',
+      statusText:master.error?'Error de perfil':!master.active?'Desconectada':master.authenticationState==='unverified'?'Sesión no verificada':!master.authenticated?'Requiere iniciar sesión':master.workspaceWorker?'SA · Worker':'Master disponible',
+    })
+  }
+}
+
+async function panelAction(action, agentId){
+  const isMaster=agentId.startsWith('master-session:')
+  const currentPanel=$('classic-p-'+agentId)||$('canvas-p-'+agentId)
+  const instanceName=currentPanel?.querySelector('.panel-name')?.textContent||agentId
+  const isLocal=agentId.startsWith('local-')
+  const isCleanRelay=!isMaster&&!isLocal&&currentPanel?.classList.contains('instance-clean')===true
+  const title=action==='stop'&&isLocal
+    ?'¿Desconectar esta instancia local del Workspace? La aplicación seguirá abierta.'
+    :action==='close'
+    ?isMaster
+      ?'¿Cerrar esta ventana Master? Se conservarán el perfil, las credenciales y su registro como worker. Las tareas no podrán usarla mientras esté cerrada.'
+      :'¿Cerrar esta instancia Relay? Se detendrá Chrome, pero se conservará la configuración para poder reiniciarla.'
+    :action==='remove'
+      ?isLocal
+        ?'¿Retirar esta instancia local del Workspace? Solo se elimina su registro de seguimiento.'
+        :isCleanRelay
+        ?'¿Retirar esta instancia Clean del Workspace? Se eliminarán su configuración y sus eventos de memoria temporal asociados. Esta acción no se puede deshacer.'
+        :'¿Retirar esta instancia del Workspace? Se eliminará su configuración de worker. Esta acción no se puede deshacer.'
+      :action==='unregister'
+        ?'¿Quitar esta Master del pool de workers? Se conservarán su perfil, credenciales, fuente registrada e historial de cuenta.'
+    :action==='restart'
+      ?'¿Reiniciar esta instancia? La actividad en curso se interrumpirá.'
+      :action==='open'
+        ?'¿Abrir esta Master y preparar SuperAssistant?'
+        :'¿Continuar con esta acción?'
+  if(!window.confirm(title)) return
+  for(const prefix of ['classic','canvas']){
+    const panel=$(prefix+'-p-'+agentId)
+    if(!panel) continue
+    panel.querySelectorAll('button').forEach(button=>{button.disabled=true})
+    const status=panel.querySelector('.panel-status')
+    if(status){
+      status.textContent=action==='close'?'Cerrando…':action==='restart'?'Reiniciando…':'Abriendo…'
+      status.className='panel-status busy'
+    }
+  }
+  try{
+    const response=await fetch('/api/action',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action,agentId}),
+    })
+    const result=await response.json()
+    if(!response.ok) throw new Error(result.error||'El servidor rechazó la acción.')
+    if(!isMaster){
+      addMsg({timestamp:Date.now(),data:{role:'sentinel',text:
+        action==='stop'&&isLocal?'Instancia local desconectada del Workspace; la aplicación sigue abierta.'
+        :action==='close'?'Relay cerrado; configuración conservada.'
+        :action==='remove'
+          ?isLocal?'Instancia local retirada del Workspace.'
+          :isCleanRelay
+            ?'Relay Clean retirado del Workspace; memoria temporal asociada eliminada.'
+            :'Relay retirado del Workspace.'
+          :action==='restart'?'Instancia reiniciada.':'Acción completada.'}})
+    }
+    if(action==='remove'||action==='unregister'||(action==='stop'&&isLocal)){
+      for(const prefix of ['classic','canvas']) $(prefix+'-p-'+agentId)?.remove()
+      await loadAgents()
+    }else if(action==='close'&&!isMaster){
+      updatePanel({
+        agentId,
+        name:instanceName,
+        status:'stopped',
+        statusText:'Detenida · configuración conservada',
+        managedInstance:true,
+        keepStopped:true,
+      })
+    }else{
+      loadAgents()
+    }
+  }catch(error){
+    addMsg({timestamp:Date.now(),data:{role:'sentinel',text:'No se pudo completar la acción: '+String(error)}})
+    loadAgents()
+  }finally{
+    for(const prefix of ['classic','canvas']){
+      $(prefix+'-p-'+agentId)?.querySelectorAll('button').forEach(button=>{button.disabled=false})
+    }
+  }
+}
+
+// ── Canvas: WebSocket real-time ──
+function renderCanvasUpdate(data){
+  if(!data) return
+  const s=data.snapshot
+  if(s) $('canvas-stats').textContent=s.findings+' hallazgos · '+s.activeWorkers+' workers'
+
+  if(data.convergence && data.convergence.length>0){
+    $('sec-convergence').style.display='block'
+    $('convergence-list').innerHTML=data.convergence.map(c=>
+      '<div class="conv-item"><span class="topic">'+esc(c.topic)+'</span> <span class="count">'+c.workerCount+' workers coinciden</span></div>'
+    ).join('')
+  }
+  if(data.divergence && data.divergence.length>0){
+    $('sec-divergence').style.display='block'
+    $('divergence-list').innerHTML=data.divergence.map(d=>
+      '<div class="div-item"><span class="topic">'+esc(d.topic)+'</span> — '+d.findings.length+' perspectivas</div>'
+    ).join('')
+  }
+
+  const entry=data.entry
+  if(!entry) return
+
+  if(entry.type==='finding'){
+    const list=$('findings-list')
+    if(list.querySelector('.empty-hint')) list.innerHTML=''
+    const div=document.createElement('div')
+    div.className='finding confidence-'+entry.confidence
+    div.innerHTML='<div class="f-header"><span class="topic">'+esc(entry.topic)+'</span><span class="platform">'+esc(entry.workerPlatform)+'</span></div>'
+      +'<div class="text">'+esc(entry.finding)+'</div>'
+      +'<div class="meta">'+entry.confidence+' · '+ts(entry.timestamp)+'</div>'
+    list.appendChild(div); list.scrollTop=list.scrollHeight
+  }
+  else if(entry.type==='request'){
+    $('sec-requests').style.display='block'
+    const div=document.createElement('div')
+    div.className='request-item'+(entry.status==='fulfilled'?' fulfilled':'')
+    div.innerHTML='<div class="need">['+esc(entry.workerPlatform)+'] '+esc(entry.need)+'</div><div class="reason">'+esc(entry.reason)+'</div>'
+    $('requests-list').appendChild(div)
+  }
+  else if(entry.type==='issue'){
+    $('sec-issues').style.display='block'
+    const div=document.createElement('div')
+    div.className='issue-item severity-'+entry.severity
+    div.innerHTML='<span class="sev">'+entry.severity+'</span><div class="desc">⚠ ['+esc(entry.workerPlatform)+'] '+esc(entry.description)+'</div>'
+    $('issues-list').appendChild(div)
+  }
+}
+
+// ── Canvas: REST initial load ──
+function loadCanvas(){
+  fetch('/api/canvas').then(r=>r.json()).then(data=>{
+    if(!data) return
+    const s=data.snapshot
+    if(s) $('canvas-stats').textContent=s.findings+' hallazgos · '+s.activeWorkers+' workers'
+    if(data.convergence&&data.convergence.length>0){
+      $('sec-convergence').style.display='block'
+      $('convergence-list').innerHTML=data.convergence.map(c=>'<div class="conv-item"><span class="topic">'+esc(c.topic)+'</span> <span class="count">'+c.workerCount+' workers</span></div>').join('')
+    }
+    if(data.divergence&&data.divergence.length>0){
+      $('sec-divergence').style.display='block'
+      $('divergence-list').innerHTML=data.divergence.map(d=>'<div class="div-item"><span class="topic">'+esc(d.topic)+'</span></div>').join('')
+    }
+    if(data.findings&&data.findings.length>0){
+      $('findings-list').innerHTML=data.findings.map(f=>
+        '<div class="finding confidence-'+f.confidence+'"><div class="f-header"><span class="topic">'+esc(f.topic)+'</span><span class="platform">'+esc(f.workerPlatform)+'</span></div><div class="text">'+esc(f.finding)+'</div><div class="meta">'+f.confidence+' · '+ts(f.timestamp)+'</div></div>'
+      ).join('')
+    }
+    if(data.pendingRequests&&data.pendingRequests.length>0){
+      $('sec-requests').style.display='block'
+      $('requests-list').innerHTML=data.pendingRequests.map(r=>'<div class="request-item"><div class="need">['+esc(r.workerPlatform)+'] '+esc(r.need)+'</div><div class="reason">'+esc(r.reason)+'</div></div>').join('')
+    }
+    if(data.openIssues&&data.openIssues.length>0){
+      $('sec-issues').style.display='block'
+      $('issues-list').innerHTML=data.openIssues.map(i=>'<div class="issue-item severity-'+i.severity+'"><span class="sev">'+i.severity+'</span><div class="desc">⚠ ['+esc(i.workerPlatform)+'] '+esc(i.description)+'</div></div>').join('')
+    }
+  }).catch(()=>{})
+}
+
+// ── Fetch existing agents on load ──
+function loadAgents(){
+  fetch('/api/status').then(r=>r.json()).then(data=>{
+    if(!data) return
+    syncWorkspaceSettings(data)
+    for(const a of data.agents||[]){
+      updatePanel({
+        agentId:a.agentId,
+        name:displayWorkspaceAgentName(a.role,a.agentId),
+        status:a.status,
+        platformId:a.platformId,
+        instanceType:'relay',
+        role:a.role,
+        sessionMode:a.sessionMode,
+        managedInstance:true,
+        keepStopped:a.status==='stopped',
+      })
+    }
+    if(data.sentinelMonitoring?.scannedAt) renderSentinelScan(data.sentinelMonitoring)
+    renderInstanceRoster(data)
+    updateMasterWorkerPanels(data.masterSessions)
+    updateDestinationOptions(data)
+    for(const message of data.workspaceMessages||[]) renderWorkspaceMessage(message)
+  }).catch(()=>{})
+}
+
+function scheduleWorkspaceStatusRefresh(){
+  clearTimeout(statusRefreshTimer)
+  statusRefreshTimer=setTimeout(loadAgents,250)
+}
+
+// ── Actions ──
+async function send(){
+  const i=$('prompt'); const t=i.value.trim()
+  if(!t) return
+  const destination=$('destination').value
+  if(destination==='sentinel'){
+    if(await sendSentinelChatMessage(t,null))i.value=''
+    return
+  }
+  if(!connected) return
+  // ── Local instance: dispatch prompt directly via backend bridge ──
+  if(destination.startsWith('local:')){
+    const instanceId=destination.slice('local:'.length)
+    const localInstance=lastLocalInstances.find(instance=>instance.id===instanceId)
+    const conversationId=selectedLocalConversations.get(instanceId)
+    if(localInstance?.platformId==='antigravity'){
+      try{
+        await sendAntigravityConversationMessage(instanceId,t)
+        i.value=''
+      }catch(error){
+        addLocalConversationEntry(instanceId,conversationId||'',{role:'status',text:'No se confirmó el envío: '+String(error)})
+        const cached=localConversationsCache.get('antigravity')
+        document.querySelectorAll('[data-local-conversation-instance]').forEach(panel=>{
+          if(panel.dataset.localConversationInstance===instanceId&&cached)renderConversationsList(cached.conversations,panel,'antigravity',instanceId)
+        })
+        addMsg({timestamp:Date.now(),data:{role:'sentinel',text:'Error al enviar a Antigravity: '+String(error)}})
+      }
+      return
+    }
+    try{
+      const response=await fetch('/api/workspace/local-prompt',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({instanceId,prompt:t,...(conversationId?{conversationId}:{})}),
+      })
+      const result=await response.json()
+      if(!response.ok) throw new Error(result.error||'No se pudo enviar el prompt a la instancia local.')
+      if(result.delivery==='unknown'){
+        uncertainLocalConversations.add(instanceId)
+      }
+      if(localInstance?.platformId==='antigravity'&&conversationId==='new'&&result.conversationId){
+        selectedLocalConversations.set(instanceId,result.conversationId)
+      }
+      document.querySelectorAll('[data-local-conversation-instance]').forEach(panel=>{
+        if(panel.dataset.localConversationInstance===instanceId){
+          const cached=localConversationsCache.get('antigravity')
+          if(cached) renderConversationsList(cached.conversations,panel,'antigravity',instanceId)
+        }
+      })
+      i.value=''
+    }catch(error){
+      addMsg({timestamp:Date.now(),data:{role:'sentinel',text:'Error al enviar a instancia local: '+String(error)}})
+    }
+    return
+  }
+  const collaborate=$('ide-collaboration-mode').checked
+  if(collaborate||destination.startsWith('ide:')){
+    const participantIds=collaborate
+      ?[...selectedIdeIds]
+      :[destination.slice('ide:'.length)]
+    if(!participantIds.length){
+      addMsg({timestamp:Date.now(),data:{role:'sentinel',text:'Selecciona al menos un agente IDE disponible.'}})
+      return
+    }
+    try{
+      const response=await fetch('/api/workspace/assign',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({participantIds,prompt:t}),
+      })
+      const result=await response.json()
+      if(!response.ok) throw new Error(result.error||'No se pudo asignar la tarea IDE.')
+      i.value=''
+      const tasks=new Map(workspaceTasks.map(task=>[task.id,task]))
+      for(const task of result) tasks.set(task.id,task)
+      workspaceTasks=[...tasks.values()]
+      renderWorkspaceTasks()
+      renderWorkspaceRoster()
+    }catch(error){
+      addMsg({timestamp:Date.now(),data:{role:'sentinel',text:'No se pudo enviar la tarea IDE: '+String(error)}})
+    }
+    return
+  }
+  const masterSessionSourceId=destination.startsWith('master:')?destination.slice('master:'.length):undefined
+  const relayAgentId=destination.startsWith('relay:')?destination.slice('relay:'.length):undefined
+  if(masterSessionSourceId||relayAgentId){
+    const instanceId=masterSessionSourceId?'master-session:'+masterSessionSourceId:relayAgentId
+    try{
+      const response=await fetch('/api/workspace/instance-chat',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({instanceId,text:t,conversationId:'main'}),
+      })
+      const result=await response.json()
+      if(result.messages){
+        const key=instanceChatKey(instanceId,'main')
+        instanceChatThreads.set(key,result.messages)
+        document.querySelectorAll('.instance-chat-panel').forEach(panel=>{
+          if(panel.dataset.instanceChatId===instanceId)renderInstanceChatHistory(panel,instanceId,'main')
+        })
+      }
+      if(!response.ok||!result.ok)throw new Error(result.error||'No se pudo enviar a la instancia.')
+      i.value=''
+    }catch(error){
+      addMsg({timestamp:Date.now(),data:{role:'sentinel',text:'No se pudo enviar al destino exacto '+instanceId+': '+String(error)}})
+    }
+    return
+  }
+  ws.send(JSON.stringify({type:'prompt',text:t}))
+  i.value=''
+}
+
+function launch(){
+  if(!connected || typeof window.createLaunchDialog!=='function') return
+  window.createLaunchDialog()
+}
+
+function openWorkspaceSettings(){
+  $('workspace-settings-dialog').showModal()
+  loadWorkspaceContext()
+}
+
+function syncWorkspaceSettings(data){
+  const settings=data?.workspaceSettings
+  if(settings&&!workspaceSettingsSaving&&!$('workspace-settings-dialog').open){
+    if(typeof settings.restorePreviousMasterWorkers==='boolean'){
+      $('restore-master-workers').checked=settings.restorePreviousMasterWorkers
+      savedWorkspaceSettings.restorePreviousMasterWorkers=settings.restorePreviousMasterWorkers
+    }
+    if(typeof settings.resumePreviousMasterSession==='boolean'){
+      $('resume-master-session').checked=settings.resumePreviousMasterSession
+      savedWorkspaceSettings.resumePreviousMasterSession=settings.resumePreviousMasterSession
+    }
+    if(typeof settings.saveCleanContext==='boolean'){
+      $('save-clean-context').checked=settings.saveCleanContext
+      savedWorkspaceSettings.saveCleanContext=settings.saveCleanContext
+    }
+    if(typeof settings.captureWebConversations==='boolean'){
+      $('capture-web-conversations').checked=settings.captureWebConversations
+      savedWorkspaceSettings.captureWebConversations=settings.captureWebConversations
+    }
+    if(Array.isArray(settings.sentinelReviewAgentIds)){
+      sentinelReviewAgentIds=new Set(settings.sentinelReviewAgentIds.filter(id=>typeof id==='string'))
+      savedWorkspaceSettings.sentinelReviewAgentIds=[...sentinelReviewAgentIds]
+    }
+    if(typeof settings.sentinelAutoReview==='boolean'){
+      $('sentinel-auto-review').checked=settings.sentinelAutoReview
+      savedWorkspaceSettings.sentinelAutoReview=settings.sentinelAutoReview
+    }
+  }
+}
+
+async function saveWorkspaceSettings(){
+  if(workspaceSettingsSaving) return
+  const restorePreviousMasterWorkers=$('restore-master-workers').checked
+  const resumePreviousMasterSession=$('resume-master-session').checked
+  const saveCleanContext=$('save-clean-context').checked
+  const captureWebConversations=$('capture-web-conversations').checked
+  const sentinelAutoReview=$('sentinel-auto-review').checked
+  const nextSentinelReviewAgentIds=sentinelAutoReview?[...sentinelReviewAgentIds]:[]
+  const previousSettings={...savedWorkspaceSettings}
+  const status=$('workspace-settings-status')
+  workspaceSettingsSaving=true
+  $('restore-master-workers').disabled=true
+  $('resume-master-session').disabled=true
+  $('save-clean-context').disabled=true
+  $('capture-web-conversations').disabled=true
+  $('sentinel-auto-review').disabled=true
+  document.querySelectorAll('.instance-sentinel-review input').forEach(input=>input.disabled=true)
+  status.textContent='Guardando…'
+  try{
+    const response=await fetch('/api/workspace/settings',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({restorePreviousMasterWorkers,resumePreviousMasterSession,saveCleanContext,captureWebConversations,sentinelAutoReview,sentinelReviewAgentIds:nextSentinelReviewAgentIds}),
+    })
+    const result=await response.json()
+    if(!response.ok) throw new Error(result.error||'No se pudieron guardar los ajustes.')
+    sentinelReviewAgentIds=new Set(nextSentinelReviewAgentIds)
+    savedWorkspaceSettings={restorePreviousMasterWorkers,resumePreviousMasterSession,saveCleanContext,captureWebConversations,sentinelAutoReview,sentinelReviewAgentIds:nextSentinelReviewAgentIds}
+    status.textContent='Ajustes guardados.'
+    loadAgents()
+    loadWorkspaceContext()
+    return true
+  }catch(error){
+    $('restore-master-workers').checked=previousSettings.restorePreviousMasterWorkers
+    $('resume-master-session').checked=previousSettings.resumePreviousMasterSession
+    $('save-clean-context').checked=previousSettings.saveCleanContext
+    $('capture-web-conversations').checked=previousSettings.captureWebConversations
+    $('sentinel-auto-review').checked=previousSettings.sentinelAutoReview
+    sentinelReviewAgentIds=new Set(previousSettings.sentinelReviewAgentIds||[])
+    loadAgents()
+    status.textContent='No se pudo guardar: '+String(error)
+    return false
+  }finally{
+    workspaceSettingsSaving=false
+    $('restore-master-workers').disabled=false
+    $('resume-master-session').disabled=false
+    $('save-clean-context').disabled=false
+    $('capture-web-conversations').disabled=false
+    $('sentinel-auto-review').disabled=false
+    document.querySelectorAll('.instance-sentinel-review input').forEach(input=>input.disabled=false)
+  }
+}
+
+async function setSentinelReviewForAgent(agentId,enabled){
+  if(enabled&&!savedWorkspaceSettings.sentinelAutoReview){ loadAgents(); return }
+  if(enabled&&!window.confirm('Los mensajes nuevos visibles de esta instancia se enviarán a Gemini; pueden incluir conversaciones autenticadas y consumir cuota. Sentinel no modificará código ni ejecutará acciones. ¿Autorizar esta instancia?')){ loadAgents(); return }
+  const previous=new Set(sentinelReviewAgentIds)
+  if(enabled) sentinelReviewAgentIds.add(agentId)
+  else sentinelReviewAgentIds.delete(agentId)
+  if(!await saveWorkspaceSettings()){ sentinelReviewAgentIds=previous; loadAgents() }
+}
+
+function toggleVoiceInput(){
+  const status=$('voice-status')
+  if(voiceRecognition){
+    voiceRecognition.stop()
+    voiceRecognition=null
+    $('voice-input').textContent='🎙 Dictar'
+    status.textContent='Dictado detenido.'
+    return
+  }
+  const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition
+  if(!Recognition){
+    status.textContent='El navegador no ofrece reconocimiento de voz. No se ha grabado audio.'
+    return
+  }
+  const recognition=new Recognition()
+  voiceRecognition=recognition
+  voiceDestination=$('destination').value
+  recognition.lang=navigator.language||'es-ES'
+  recognition.continuous=false
+  recognition.interimResults=true
+  const stopForDestinationChange=()=>{
+    if(voiceRecognition!==recognition||$('destination').value===voiceDestination) return
+    status.textContent='Se detuvo el dictado porque cambió el destino.'
+    recognition.stop()
+  }
+  $('destination').addEventListener('change',stopForDestinationChange)
+  recognition.onresult=event=>{
+    if($('destination').value!==voiceDestination){
+      status.textContent='Se detuvo el dictado porque cambió el destino.'
+      recognition.stop()
+      return
+    }
+    const transcript=Array.from(event.results).map(result=>result[0]?.transcript||'').join('').trim()
+    if(transcript) $('prompt').value=transcript
+  }
+  recognition.onerror=event=>{ status.textContent='Error de dictado: '+event.error }
+  recognition.onend=()=>{
+    $('destination').removeEventListener('change',stopForDestinationChange)
+    if(voiceRecognition===recognition) voiceRecognition=null
+    $('voice-input').textContent='🎙 Dictar'
+    if(status.textContent==='Dictado detenido.'||status.textContent.startsWith('Se detuvo')) return
+    if($('destination').value!==voiceDestination) status.textContent='Se detuvo el dictado porque cambió el destino.'
+    else if(!status.textContent.startsWith('Error')) status.textContent='Dictado finalizado. Revisa el texto y pulsa Enviar cuando quieras.'
+  }
+  $('voice-input').textContent='■ Detener'
+  status.textContent='Escuchando para '+$('destination').selectedOptions[0]?.textContent+'. El navegador puede enviar audio a su proveedor de reconocimiento; revisa sus ajustes de privacidad. El texto no se envía hasta que pulses Enviar.'
+  try{ recognition.start() }catch(error){ $('destination').removeEventListener('change',stopForDestinationChange); voiceRecognition=null; $('voice-input').textContent='🎙 Dictar'; status.textContent='No se pudo iniciar el dictado: '+String(error) }
+}
+
+async function loadWorkspaceContext(requestedOffset){
+  const summary=$('workspace-context-summary')
+  try{
+    const infoResponse=await fetch('/api/workspace/context?offset=0&limit=1')
+    const info=await infoResponse.json()
+    if(!infoResponse.ok) throw new Error(info.error||'No se pudo leer el historial.')
+    workspaceContextCount=info.eventCount
+    const latestOffset=Math.max(0,workspaceContextCount-25)
+    const offset=Number.isSafeInteger(requestedOffset)
+      ? Math.max(0,Math.min(requestedOffset,latestOffset))
+      : latestOffset
+    const response=await fetch(`/api/workspace/context?offset=${offset}&limit=25`)
+    const data=await response.json()
+    if(!response.ok) throw new Error(data.error||'No se pudo leer el historial.')
+    workspaceContextOffset=offset
+    const range=data.events.length?`mostrando ${offset+1}-${Math.min(offset+data.events.length,data.eventCount)}`:'sin eventos'
+    summary.textContent=`${data.enabled?'Captura activa':'Captura desactivada'} · ${data.eventCount} eventos · ${(data.sizeBytes/1024).toFixed(1)} KiB · ${range}`
+    $('workspace-context-previous').disabled=offset===0
+    $('workspace-context-next').disabled=offset+data.events.length>=data.eventCount
+    const container=$('workspace-context-events')
+    container.replaceChildren()
+    for(const event of data.events||[]){
+      const row=document.createElement('div')
+      const reviewSignals=event.review?.signals||[]
+      const contentOmitted=event.review?.status==='content-omitted'
+      const severity=event.review?.severity||
+        (reviewSignals.includes('credential-like-value')||reviewSignals.includes('bearer-token-like-value')
+          ?'critical'
+          :reviewSignals.includes('sensitive-data-request')
+            ?'high'
+            :reviewSignals.length?'medium':'none')
+      const isCleanWorker=event.sessionMode==='clean'
+      row.className='context-event'+(isCleanWorker?' clean-worker':'')+(severity!=='none'?' severity-'+severity:'')+(contentOmitted?' review-sensitive':'')
+      const details=event.text||event.arguments!==undefined||event.result!==undefined
+        ? event.text||[event.arguments!==undefined?'Argumentos: '+JSON.stringify(event.arguments):'',event.result!==undefined?'Resultado: '+JSON.stringify(event.result):''].filter(Boolean).join('\n')
+        : ''
+      const modeLabel=isCleanWorker?'Worker Clean':event.sessionMode==='authenticated'?'Master autenticada':event.sessionMode==='chrome-profile'?'Perfil Chrome copiado':''
+      const parts=[event.timestamp,event.type,modeLabel,event.agentId||event.toolName||event.source,event.callId?'call '+event.callId:'',event.success===undefined?'':event.success?'éxito':'error',details]
+      if(contentOmitted) parts.push('🚨 CRÍTICO · texto omitido por patrón de posible credencial: '+reviewSignals.join(', '))
+      else if(severity!=='none') parts.push('⚠ '+severity.toUpperCase()+' · señal heurística local: '+reviewSignals.join(', '))
+      const display=parts.filter(Boolean).join(' · ')
+      row.textContent=display.length>4000?display.slice(0,4000)+'\n… vista previa truncada; el evento almacenado está completo.':display
+      if(isCleanWorker){
+        const analysisState=document.createElement('span')
+        analysisState.className='context-review-state'
+        analysisState.textContent=event.review?.aiAnalysis==='pending'
+          ?'Análisis de IA pendiente; la severidad mostrada es heurística local, no revisión de Sentinel.'
+          :'Clasificación local; no consta revisión de Sentinel.'
+        row.appendChild(analysisState)
+      }
+      container.appendChild(row)
+    }
+  }catch(error){
+    summary.textContent='No se pudo leer el historial: '+String(error)
+  }
+}
+
+function pageWorkspaceContext(direction){
+  const offset=direction<0
+    ? Math.max(0,workspaceContextOffset-25)
+    : Math.min(Math.max(0,workspaceContextCount-25),workspaceContextOffset+25)
+  loadWorkspaceContext(offset)
+}
+
+async function clearWorkspaceContext(){
+  if(!confirm('¿Eliminar definitivamente todo el historial compartido de este proyecto? Esta acción no se puede deshacer.')) return
+  const summary=$('workspace-context-summary')
+  try{
+    const response=await fetch('/api/workspace/context',{method:'DELETE'})
+    const data=await response.json()
+    if(!response.ok) throw new Error(data.error||'No se pudo eliminar el historial.')
+    $('workspace-context-events').replaceChildren()
+    workspaceContextOffset=0
+    workspaceContextCount=0
+    $('workspace-context-previous').disabled=true
+    $('workspace-context-next').disabled=true
+    summary.textContent='Historial eliminado. La captura permanece activa si la opción sigue marcada.'
+  }catch(error){
+    summary.textContent='No se pudo eliminar el historial: '+String(error)
+  }
+}
+
+// ── Init ──
+$('prompt').addEventListener('keydown',e=>{if(e.key==='Enter')send()})
+document.querySelectorAll('[data-sentinel-chat-form]').forEach(form=>form.addEventListener('submit',event=>{
+  event.preventDefault()
+  const input=form.querySelector('[data-sentinel-chat-input]')
+  if(input)void sendSentinelChatMessage(input.value,input)
+}))
+$('destination').addEventListener('change',()=>{
+  $('prompt').placeholder=$('destination').value.startsWith('ide:')
+    ? 'Asigna una tarea al agente IDE seleccionado...'
+    : $('destination').value==='sentinel'
+        ? 'Conversa con Sentinel (Gemini): consulta capacidades, UX o salud de Relays...'
+    : $('destination').value.startsWith('master:')
+      ? 'Escribe directamente a la Master seleccionada...'
+      : $('destination').value.startsWith('relay:')
+        ? 'Escribe directamente al Relay seleccionado...'
+      : 'Escribe al coordinador y pool Relay...'
+})
+
+// Restore last view preference
+const saved = localStorage.getItem('workspace-view')
+if(saved === 'canvas') switchView('canvas')
+
+connect()
+loadCanvas()
+loadAgents()
+loadSentinelChatHistory()
+setInterval(loadAgents,15000)
+</script>
+<script src="/launchDialog.js"></script>
+<script src="/workspaceLayout.js"></script>
+</body>
+</html>

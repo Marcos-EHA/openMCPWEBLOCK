@@ -3,9 +3,9 @@ import type { Command } from '../../commands.js'
 const mcp = {
   type: 'local-jsx',
   name: 'mcp',
-  description: 'Manage MCP servers',
+  description: 'Manage SuperAssistant connection, MCP servers and Sentinel',
   immediate: true,
-  argumentHint: '[enable|disable [server-name]] | [set-mode api|web|auto] | [status]',
+  argumentHint: '[status|ask <tarea>|sentinel|recover|set-mode api|web|local|bridge [start|stop|restart|status]|master-session [add|open|status|ask <id> <prompt>]|lienzo|workspace [start|stop|status]|enable|disable [server-name]]',
   load: () => import('./mcp.js'),
 } satisfies Command
 

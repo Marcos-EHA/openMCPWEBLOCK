@@ -12,6 +12,7 @@
     "README.md"
   ],
   "scripts": {
+    "server:mcp": "bun run scripts/start-mcp-server.ts",
     "build": "bun run scripts/build.ts",
     "dev": "bun run build && node dist/cli.mjs",
     "dev:profile": "bun run scripts/provider-launch.ts",
@@ -38,6 +39,7 @@
     "test:coverage:ui": "bun run scripts/render-coverage-heatmap.ts",
     "security:pr-scan": "bun run scripts/pr-intent-scan.ts",
     "test:provider-recommendation": "bun test src/utils/providerRecommendation.test.ts src/utils/providerProfile.test.ts",
+    "test:sa-e2e": "bun run tests/investigation/test-e2e-tools.ts",
     "typecheck": "tsc --noEmit",
     "smoke": "bun run build && node dist/cli.mjs --version",
     "verify:privacy": "bun run scripts/verify-no-phone-home.ts",
@@ -132,6 +134,7 @@
     "@types/bun": "1.3.11",
     "@types/node": "25.5.0",
     "@types/react": "19.2.14",
+    "puppeteer-core": "^25.11.0",
     "tsx": "^4.21.0",
     "typescript": "5.9.3"
   },

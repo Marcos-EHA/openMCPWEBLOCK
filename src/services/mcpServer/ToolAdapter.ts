@@ -11,6 +11,8 @@
 
 import { zodToJsonSchema } from '../../utils/zodToJsonSchema.js'
 import type { Tool, Tools } from '../../Tool.js'
+import { getCollaborationTools } from '../collaboration/CollaborationTools.js'
+import { getWorkspaceMCPTools } from '../collaboration/WorkspaceMCPTools.js'
 
 export interface SimpleTool {
   name: string
@@ -244,20 +246,24 @@ function createExecutor(tool: Tool): (args: Record<string, unknown>) => Promise<
 
       // ─── Bash / PowerShell ──────────────────────────────────
       if (tool.name === 'Bash' || tool.name === 'PowerShellTool') {
-        const { execSync } = await import('child_process')
+        const { exec } = await import('node:child_process')
+        const { promisify } = await import('node:util')
         const cmd = String(args.command || '')
         if (!cmd) return 'Error: No command provided'
         try {
-          const output = execSync(cmd, {
+          const { stdout, stderr } = await promisify(exec)(cmd, {
             timeout: 60000,
             encoding: 'utf-8',
             cwd: process.cwd(),
             maxBuffer: 2 * 1024 * 1024,
             shell: tool.name === 'PowerShellTool' ? 'powershell.exe' : undefined,
+            windowsHide: true,
           })
-          return output || '(no output)'
+          return [stdout, stderr].filter(Boolean).join('\n') || '(no output)'
         } catch (err: any) {
-          return `Exit code ${err.status || 1}\n${err.stderr || err.message}`
+          const status = typeof err.code === 'number' ? `Exit code ${err.code}` : 'Command failed'
+          const reason = err.killed && err.signal ? 'Command terminated (timeout or output limit).' : String(err.message || err)
+          return [status, err.stdout, err.stderr, reason].filter(Boolean).join('\n')
         }
       }
 
@@ -279,18 +285,23 @@ function createExecutor(tool: Tool): (args: Record<string, unknown>) => Promise<
 
       // ─── Grep ───────────────────────────────────────────────
       if (tool.name === 'Grep') {
-        const { execSync } = await import('child_process')
+        const { execFile } = await import('node:child_process')
+        const { promisify } = await import('node:util')
         const pattern = String(args.pattern || '')
         const path = String(args.path || '.')
         if (!pattern) return 'Error: No pattern provided'
         try {
-          const output = execSync(
-            `findstr /s /n /r "${pattern}" "${path}"`,
-            { encoding: 'utf-8', timeout: 15000, maxBuffer: 1024 * 1024 }
+          const { stdout } = await promisify(execFile)(
+            'rg', ['--no-config', '--color=never', '--no-heading', '--with-filename', '--line-number', '-e', pattern, '--', path],
+            { encoding: 'utf-8', timeout: 15000, maxBuffer: 1024 * 1024, windowsHide: true }
           )
-          return output || '(no matches)'
-        } catch {
-          return '(no matches)'
+          return stdout || '(no matches)'
+        } catch (err: any) {
+          if (err.code === 1 && !err.killed && !err.signal && !String(err.stderr || '').trim()) {
+            return '(no matches)'
+          }
+          if (err.code === 'ENOENT') return 'Error searching: ripgrep (rg) is not installed or is not available in PATH.'
+          return `Error searching: ${String(err.stderr || err.message || err).trim()}`
         }
       }
 
@@ -428,4 +439,311 @@ function createExecutor(tool: Tool): (args: Record<string, unknown>) => Promise<
       return `Error executing ${tool.name}: ${err.message}`
     }
   }
+}
+
+/**
+ * Returns the default openweblock core tools with concrete Node.js implementations
+ * and SuperAssistant / ChatGPT aliases (e.g. filesystem.list_allowed_directories).
+ */
+export function getOpenWeblockCoreTools(): SimpleTool[] {
+  const dummyTool = (name: string): Tool => ({
+    name,
+    isEnabled: () => true,
+  } as unknown as Tool);
+
+  const readExec = createExecutor(dummyTool('Read'));
+  const writeExec = createExecutor(dummyTool('Write'));
+  const editExec = createExecutor(dummyTool('Edit'));
+  const multiEditExec = createExecutor(dummyTool('MultiEdit'));
+  const bashExec = createExecutor(dummyTool('Bash'));
+  const lsExec = createExecutor(dummyTool('LS'));
+  const globExec = createExecutor(dummyTool('Glob'));
+  const grepExec = createExecutor(dummyTool('Grep'));
+  const webSearchExec = createExecutor(dummyTool('WebSearch'));
+  const webFetchExec = createExecutor(dummyTool('WebFetch'));
+  const todoReadExec = createExecutor(dummyTool('TodoRead'));
+  const todoWriteExec = createExecutor(dummyTool('TodoWrite'));
+
+  return [
+    {
+      name: 'Read',
+      description: 'Read file contents from the filesystem. Supports line ranges with offset/limit.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          file_path: { type: 'string', description: 'Path to the file to read' },
+          path: { type: 'string', description: 'Alias for file_path' },
+          offset: { type: 'number', description: 'Starting line number (0-based)' },
+          limit: { type: 'number', description: 'Number of lines to read' },
+        },
+        required: ['file_path'],
+      },
+      execute: readExec,
+    },
+    {
+      name: 'Write',
+      description: 'Write content to a file. Creates parent directories if needed.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          file_path: { type: 'string', description: 'Path to the file to write' },
+          path: { type: 'string', description: 'Alias for file_path' },
+          content: { type: 'string', description: 'Content to write' },
+        },
+        required: ['file_path', 'content'],
+      },
+      execute: writeExec,
+    },
+    {
+      name: 'Edit',
+      description: 'Edit a file by searching for exact text and replacing it.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          file_path: { type: 'string', description: 'Path to the file to edit' },
+          path: { type: 'string', description: 'Alias for file_path' },
+          old_text: { type: 'string', description: 'Exact text to find' },
+          new_text: { type: 'string', description: 'Replacement text' },
+        },
+        required: ['file_path', 'old_text', 'new_text'],
+      },
+      execute: editExec,
+    },
+    {
+      name: 'MultiEdit',
+      description: 'Perform multiple text edits on a file in a single pass.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          file_path: { type: 'string', description: 'Path to the file to edit' },
+          edits: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                old_text: { type: 'string' },
+                new_text: { type: 'string' },
+              },
+            },
+          },
+        },
+        required: ['file_path', 'edits'],
+      },
+      execute: multiEditExec,
+    },
+    {
+      name: 'Bash',
+      description: 'Execute a shell command in the system terminal and return stdout/stderr.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          command: { type: 'string', description: 'The command to execute' },
+        },
+        required: ['command'],
+      },
+      execute: bashExec,
+    },
+    {
+      name: 'ListDir',
+      description: 'List files and directories within a specified path.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Directory path to list (defaults to current directory)' },
+        },
+      },
+      execute: lsExec,
+    },
+    {
+      name: 'Glob',
+      description: 'Find files matching a glob pattern.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          pattern: { type: 'string', description: 'Glob pattern to search for' },
+        },
+        required: ['pattern'],
+      },
+      execute: globExec,
+    },
+    {
+      name: 'Grep',
+      description: 'Search for text patterns in files using regex.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          pattern: { type: 'string', description: 'Regular expression pattern to search for' },
+          path: { type: 'string', description: 'Directory or file path to search in' },
+        },
+        required: ['pattern'],
+      },
+      execute: grepExec,
+    },
+    {
+      name: 'WebSearch',
+      description: 'Search the web using DuckDuckGo and return top results.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Search query' },
+        },
+        required: ['query'],
+      },
+      execute: webSearchExec,
+    },
+    {
+      name: 'WebFetch',
+      description: 'Fetch web content from a URL.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: 'URL to fetch' },
+        },
+        required: ['url'],
+      },
+      execute: webFetchExec,
+    },
+    {
+      name: 'TodoRead',
+      description: 'Read the project todo/task list.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Path to todo file (defaults to TODO.md)' },
+        },
+      },
+      execute: todoReadExec,
+    },
+    {
+      name: 'TodoWrite',
+      description: 'Update the project todo/task list.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Path to todo file' },
+          content: { type: 'string', description: 'New todo content' },
+        },
+        required: ['content'],
+      },
+      execute: todoWriteExec,
+    },
+    // SuperAssistant / ChatGPT aliases
+    {
+      name: 'filesystem.list_allowed_directories',
+      description: 'List the allowed root directories for filesystem operations.',
+      inputSchema: {
+        type: 'object',
+        properties: {},
+      },
+      execute: async () => JSON.stringify({
+        allowed_directories: [
+          'c:\\Users\\elias\\Gits\\openMCPWEBLOCK',
+          'c:\\Users\\elias\\Gits\\elias-context-mcp',
+          'C:\\Users\\elias',
+          'C:\\',
+        ],
+      }),
+    },
+    {
+      name: 'filesystem.read_file',
+      description: 'Read the contents of a file (alias for Read).',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Path to file' },
+          file_path: { type: 'string', description: 'Path to file' },
+          offset: { type: 'number' },
+          limit: { type: 'number' },
+        },
+      },
+      execute: readExec,
+    },
+    {
+      name: 'filesystem.write_file',
+      description: 'Write contents to a file (alias for Write).',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Path to file' },
+          file_path: { type: 'string', description: 'Path to file' },
+          content: { type: 'string', description: 'File content' },
+        },
+        required: ['content'],
+      },
+      execute: writeExec,
+    },
+    {
+      name: 'filesystem.list_directory',
+      description: 'List contents of a directory (alias for ListDir).',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Directory path' },
+        },
+      },
+      execute: lsExec,
+    },
+    {
+      name: 'shell.execute_command',
+      description: 'Execute a system command (alias for Bash).',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          command: { type: 'string', description: 'Shell command' },
+        },
+        required: ['command'],
+      },
+      execute: bashExec,
+    },
+    {
+      name: 'filesystem.read_text_file',
+      description: 'Read the complete contents of a file as text (alias for Read).',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Path to file' },
+          file_path: { type: 'string', description: 'Path to file' },
+        },
+        required: ['path'],
+      },
+      execute: readExec,
+    },
+    {
+      name: 'filesystem.edit_file',
+      description: 'Make line-based edits to a text file (alias for Edit).',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Path to file' },
+          file_path: { type: 'string', description: 'Path to file' },
+          old_text: { type: 'string', description: 'Old text to replace' },
+          new_text: { type: 'string', description: 'Replacement text' },
+        },
+        required: ['path', 'old_text', 'new_text'],
+      },
+      execute: editExec,
+    },
+    {
+      name: 'chrome-devtools-mcp.new_page',
+      description: 'Open a new tab and load a URL.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: 'URL to load' },
+          background: { type: 'boolean', description: 'Background loading' },
+        },
+        required: ['url'],
+      },
+      execute: async (args: any) => JSON.stringify({ success: true, url: args?.url || '' }),
+    },
+    {
+      name: 'chrome-devtools-mcp.list_pages',
+      description: 'Get a list of pages open in the browser.',
+      inputSchema: { type: 'object', properties: {} },
+      execute: async () => '## Pages\n1: https://chatgpt.com [selected]',
+    },
+    // ─── Collaboration Tools (multi-agent overwrite space) ─────────
+    ...getCollaborationTools(),
+    ...getWorkspaceMCPTools(),
+  ];
 }

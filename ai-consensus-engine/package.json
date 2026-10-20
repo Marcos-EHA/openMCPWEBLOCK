@@ -1,0 +1,17 @@
+{
+  "name": "@openmcp/ai-consensus-engine",
+  "version": "0.1.0",
+  "description": "Multi-agent AI consensus engine for openMCPWEBLOCK",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.0.0"
+  }
+}

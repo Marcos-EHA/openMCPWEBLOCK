@@ -8,7 +8,7 @@
  * - src/ path aliases
  */
 
-import { readFileSync, readdirSync, writeFileSync } from 'fs'
+import { readFileSync, readdirSync, writeFileSync, cpSync, existsSync } from 'fs'
 import { join } from 'path'
 import { noTelemetryPlugin } from './no-telemetry-plugin'
 
@@ -483,6 +483,16 @@ if (!result.success) {
   process.exitCode = 1
 } else {
   console.log(`✓ Built openclaude v${version} → dist/cli.mjs`)
+
+  // Copy workspace views and their shared launch dialog to dist/
+  const webUiFiles = ['workspace.html', 'workspace-canvas.html', 'launchDialog.js', 'workspaceLayout.js']
+  for (const file of webUiFiles) {
+    const webUiSrc = join('src', 'services', 'webUI', file)
+    if (existsSync(webUiSrc)) {
+      cpSync(webUiSrc, join('dist', file))
+      console.log(`  📄 Copied ${file} → dist/`)
+    }
+  }
 }
 
 } finally {

@@ -57,11 +57,25 @@ import { PromptDialog } from '../components/hooks/PromptDialog.js';
 import type { PromptRequest, PromptResponse } from '../types/hooks.js';
 import PromptInput from '../components/PromptInput/PromptInput.js';
 import { PromptInputQueuedCommands } from '../components/PromptInput/PromptInputQueuedCommands.js';
+import { CollaborationSurfaceMount } from '../components/CollaborationSurfaceMount.js';
+import { ensureWebUIStarted } from '../services/webUI/index.js';
 import { useRemoteSession } from '../hooks/useRemoteSession.js';
 import { useDirectConnect } from '../hooks/useDirectConnect.js';
 import type { DirectConnectConfig } from '../server/directConnectManager.js';
 import { useSSHSession } from '../hooks/useSSHSession.js';
 import { useAssistantHistory } from '../hooks/useAssistantHistory.js';
+import { GeminiOrchestrator } from '../services/geminiOrchestrator/GeminiOrchestrator.js';
+import { createSentinelInstanceTools, type SentinelInstanceEvent } from '../services/geminiOrchestrator/sentinelInstanceTools.js';
+import type { AgentState } from '../services/webRelay/orchestration/types.js';
+import { prepareSAAgentForWebRelay, sendWebPrompt } from '../services/webRelay/WebRelayProvider.js';
+import { runCoordinatedWebTask } from '../services/webRelay/WebRelayCoordinator.js';
+import {
+  applyWebRelayActivityEvent,
+  finishWebRelayActivity,
+  startWebRelayActivity,
+} from '../services/webRelay/WebRelayActivityStore.js';
+import { orchestrationAppState } from '../services/webRelay/orchestration/AppState.js';
+import { useOrchestratorState } from '../hooks/useOrchestratorState.js';
 import type { SSHSession } from '../ssh/createSSHSession.js';
 import { SkillImprovementSurvey } from '../components/SkillImprovementSurvey.js';
 import { useSkillImprovementSurvey } from '../hooks/useSkillImprovementSurvey.js';
@@ -128,7 +142,8 @@ import { WEB_FETCH_TOOL_NAME } from '../tools/WebFetchTool/prompt.js';
 import { SLEEP_TOOL_NAME } from '../tools/SleepTool/prompt.js';
 import { clearSpeculativeChecks } from '../tools/BashTool/bashPermissions.js';
 import type { AutoUpdaterResult } from '../utils/autoUpdater.js';
-import { getGlobalConfig, saveGlobalConfig, getGlobalConfigWriteCount } from '../utils/config.js';
+import { getCurrentProjectConfig, getGlobalConfig, saveCurrentProjectConfig, saveGlobalConfig, getGlobalConfigWriteCount } from '../utils/config.js';
+import { getWebPlatformById } from '../utils/webPlatforms.js';
 import { hasConsoleBillingAccess } from '../utils/billing.js';
 import { logEvent, type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS } from 'src/services/analytics/index.js';
 import { getFeatureValue_CACHED_MAY_BE_STALE } from 'src/services/analytics/growthbook.js';
@@ -721,6 +736,39 @@ export function REPL({
     addNotification,
     removeNotification
   } = useNotifications();
+  const { state: orchestrationState } = useOrchestratorState();
+  const lastSentinelLogIdRef = useRef<string | null>(null);
+  const sentinelLogStreamReadyRef = useRef(false);
+  useEffect(() => {
+    const logs = orchestrationState.events.filter(event => event.name === 'sentinel:log');
+    if (!sentinelLogStreamReadyRef.current) {
+      sentinelLogStreamReadyRef.current = true;
+      lastSentinelLogIdRef.current = logs[0]?.id ?? null;
+      return;
+    }
+    if (logs.length === 0) return;
+    const lastSeenIndex = lastSentinelLogIdRef.current === null
+      ? -1
+      : logs.findIndex(event => event.id === lastSentinelLogIdRef.current);
+    const newLogs = lastSentinelLogIdRef.current === null
+      ? logs.slice(0, 10)
+      : lastSeenIndex < 0 ? logs.slice(0, 1) : logs.slice(0, lastSeenIndex);
+    lastSentinelLogIdRef.current = logs[0]!.id;
+    for (const entry of newLogs.reverse()) {
+      if (entry.severity !== 'error') continue;
+      addNotification({
+        key: `sentinel-${entry.agentId ?? 'system'}`,
+        text: `Sentinel · ${entry.agentId ?? 'Web Relay'}: ${entry.detail ?? 'Error de salud detectado.'}`,
+        color: 'error',
+        priority: 'high',
+        fold: (previous, incoming) => {
+          if (!('text' in previous) || !('text' in incoming)) return incoming;
+          const messages = new Set([...previous.text.split('\n'), ...incoming.text.split('\n')]);
+          return { ...previous, text: [...messages].join('\n') };
+        },
+      });
+    }
+  }, [orchestrationState.events, addNotification]);
 
   // eslint-disable-next-line prefer-const
   let trySuggestBgPRIntercept = SUGGEST_BG_PR_NOOP;
@@ -902,6 +950,9 @@ export function REPL({
   // error-prone dual-state pattern where isLoading (React state, async
   // batched) and isQueryRunning (ref, sync) could desync. See QueryGuard.ts.
   const queryGuard = React.useRef(new QueryGuard()).current;
+  const sentinelAssistantRef = useRef<GeminiOrchestrator | null>(null);
+  const sentinelRequestInFlightRef = useRef(false);
+  const webAgentRequestInFlightRef = useRef(false);
 
   // Subscribe to the guard — true during dispatching or running.
   // This is the single source of truth for "is a local query in flight".
@@ -3618,6 +3669,299 @@ export function REPL({
     // accumulating after #20174/#20175, all traced to this dep.
     mainLoopModel, pastedContents, ideSelection, setUserInputOnProcessing, setAbortController, addNotification, onQuery, stashedPrompt, setStashedPrompt, setAppState, onBeforeQuery, canUseTool, remoteSession, setMessages, awaitPendingHooks, repinScroll]);
 
+  const onSentinelSubmit = useCallback(async (input: string, helpers: PromptInputHelpers) => {
+    const message = input.trim();
+    if (!message || sentinelRequestInFlightRef.current) return;
+
+    sentinelRequestInFlightRef.current = true;
+    setInputValue('');
+    helpers.setCursorOffset(0);
+    helpers.clearBuffer();
+    helpers.resetHistory();
+    setMessages(previous => [...previous, createUserMessage({ content: message })]);
+    setIsExternalLoading(true);
+
+    try {
+      const configuredAssistant = new GeminiOrchestrator({
+        model: getCurrentProjectConfig().sentinelModel,
+        systemPrompt:
+          'Eres Sentinel, el supervisor y guía de trabajo de OpenMCPWEBLOCK. Acompaña al usuario durante todo el desarrollo: acuerda/explica la etapa actual, coordina tareas específicas entre las instancias, muestra el progreso, revisa las respuestas originales y recomienda el siguiente paso. No reduzcas el trabajo a una síntesis final; sintetiza solo si te lo piden. ' +
+          'Puedes administrar instancias Web Relay guest/clean: listarlas, lanzarlas, detenerlas y enviarles tareas. Las instancias guest de ChatGPT reciben el prompt operativo de SuperAssistant con herramientas MCP locales enumeradas (archivos/shell), y sí pueden usarlas en el dispositivo bajo esos esquemas. Nunca digas que no tienen acceso local cuando esas herramientas están disponibles; tampoco afirmes acceso fuera de las herramientas expuestas. ' +
+          'Para diagnosticar actividad real de las instancias, usa openmcp_read_activity antes de concluir: consulta el cursor compartido y, cuando corresponda, pasa los agentIds exactos para importar los eventos técnicos recientes del Relay. Distingue eventos observados de inferencias; una captura visual no sustituye la traza ni prueba causalidad. ' +
+          'Si el usuario pide analizar una ruta local y dice que no hace falta autorización, toma eso como permiso para el análisis de solo lectura solicitado. No vuelvas a pedir permiso ni repitas preguntas ya respondidas. Excluye .env, credenciales y secretos; no hagas cambios ni ejecutes comandos salvo que el usuario lo pida. ' +
+          'Flujo recomendado para analizar una carpeta con varias instancias: primero lanza exactamente la cantidad que el usuario indicó; luego pide a una instancia un reconocimiento read-only del árbol, README y manifiestos, espera y muestra su respuesta original; usa lo que encontró para formular tareas técnicas diferentes y concretas para las demás instancias, enviándolas una por una para que haya seguimiento visible. Después guía al usuario y supervisa hallazgos, discrepancias y próximos pasos; no inventes progreso ni resultados. ' +
+          'Antes de afirmar un lanzamiento, consulta/usa la herramienta y confirma los IDs devueltos. Si falta cantidad, pregunta solo por la cantidad. Nunca consultes, lances ni detengas sesiones autenticadas o la sesión maestra. Cada respuesta de instancia se muestra literalmente en un bloque separado y la síntesis se omite salvo petición. No solicites ni reveles claves, cookies u otros secretos.',
+      });
+      const assistant = sentinelAssistantRef.current?.model === configuredAssistant.model
+        ? sentinelAssistantRef.current
+        : configuredAssistant;
+      if (assistant === configuredAssistant) {
+        assistant.registerTools(createSentinelInstanceTools({
+          getPlatform: () => {
+            const config = getCurrentProjectConfig();
+            const platformId = config.selectedWebPlatform ?? 'chatgpt';
+            const platform = getWebPlatformById(platformId);
+            return platform ? { id: platform.id, name: platform.name } : undefined;
+          },
+          getAgents: () => orchestrationAppState.getState().agents,
+          startAgent: (agentId, platformId, role, sessionMode) =>
+            orchestrationAppState.startAgent(agentId, platformId, role, sessionMode),
+          stopAgent: agentId => orchestrationAppState.stopAgent(agentId),
+          removeAgent: agentId => orchestrationAppState.removeAgent(agentId),
+          prepareAgent: prepareSAAgentForWebRelay,
+          sendPrompt: (prompt, platformId, agentId) => sendWebPrompt(prompt, platformId, agentId),
+          persistAgents: agentIds => {
+            const stateAgents = Object.values(orchestrationAppState.getState().agents)
+            const sentinelIds = new Set([
+              ...agentIds,
+              ...stateAgents
+                .filter(agent =>
+                  agent.role?.startsWith('sentinel-guest-') ||
+                  agent.agentId.startsWith('sentinel-'),
+                )
+                .map(agent => agent.agentId),
+            ])
+            const activeAgents = stateAgents
+              .filter((agent): agent is AgentState & { sessionMode: 'clean' | 'authenticated' | 'chrome-profile' } =>
+                agent.status === 'ready' &&
+                Boolean(agent.instanceId) &&
+                !sentinelIds.has(agent.agentId) &&
+                (agent.sessionMode === 'clean' ||
+                  agent.sessionMode === 'authenticated' ||
+                  agent.sessionMode === 'chrome-profile'),
+              );
+            saveCurrentProjectConfig(current => {
+              const activeIds = [...new Set([
+                ...(current.webRelayAgentIds ?? []).filter(id =>
+                  !sentinelIds.has(id) && !id.startsWith('sentinel-'),
+                ),
+                ...activeAgents.map(agent => agent.agentId),
+              ])];
+              const profiles = new Map(
+                (current.webRelayAgentProfiles ?? [])
+                  .filter(profile => activeIds.includes(profile.agentId))
+                  .map(profile => [profile.agentId, {
+                    sessionMode: profile.sessionMode,
+                    masterSessionSourceId: profile.masterSessionSourceId,
+                    chromeProfileDirectory: profile.chromeProfileDirectory,
+                  }] as const),
+              );
+              for (const agent of activeAgents) profiles.set(agent.agentId, {
+                sessionMode: agent.sessionMode,
+                masterSessionSourceId: agent.masterSessionSourceId,
+                chromeProfileDirectory: agent.chromeProfileDirectory,
+              });
+              for (const agentId of agentIds) profiles.set(agentId, {
+                sessionMode: 'clean',
+                masterSessionSourceId: undefined,
+                chromeProfileDirectory: undefined,
+              });
+              return {
+                ...current,
+                webRelayAgentIds: activeIds,
+                webRelayAgentProfiles: [...profiles].map(([agentId, profile]) => ({
+                  agentId,
+                  ...profile,
+                })),
+              };
+            });
+          },
+          persistStoppedAgents: agentIds => {
+            const stateAgents = Object.values(orchestrationAppState.getState().agents)
+            const sentinelIds = new Set([
+              ...agentIds,
+              ...stateAgents
+                .filter(agent =>
+                  agent.role?.startsWith('sentinel-guest-') ||
+                  agent.agentId.startsWith('sentinel-'),
+                )
+                .map(agent => agent.agentId),
+            ])
+            const activeAgents = stateAgents
+              .filter((agent): agent is AgentState & { sessionMode: 'clean' | 'authenticated' | 'chrome-profile' } =>
+                agent.status === 'ready' &&
+                Boolean(agent.instanceId) &&
+                (agent.sessionMode === 'clean' ||
+                  agent.sessionMode === 'authenticated' ||
+                  agent.sessionMode === 'chrome-profile') &&
+                !sentinelIds.has(agent.agentId),
+              );
+            saveCurrentProjectConfig(current => {
+              const activeIds = [...new Set([
+                ...(current.webRelayAgentIds ?? []).filter(id =>
+                  !sentinelIds.has(id) && !id.startsWith('sentinel-'),
+                ),
+                ...activeAgents.map(agent => agent.agentId),
+              ])];
+              const profiles = new Map(
+                (current.webRelayAgentProfiles ?? [])
+                  .filter(profile => activeIds.includes(profile.agentId))
+                  .map(profile => [profile.agentId, {
+                    sessionMode: profile.sessionMode,
+                    masterSessionSourceId: profile.masterSessionSourceId,
+                    chromeProfileDirectory: profile.chromeProfileDirectory,
+                  }] as const),
+              );
+              for (const agent of activeAgents) profiles.set(agent.agentId, {
+                sessionMode: agent.sessionMode,
+                masterSessionSourceId: agent.masterSessionSourceId,
+                chromeProfileDirectory: agent.chromeProfileDirectory,
+              });
+              return {
+                ...current,
+                webRelayAgentIds: activeIds,
+                webRelayAgentProfiles: [...profiles].map(([agentId, profile]) => ({
+                  agentId,
+                  ...profile,
+                })),
+              };
+            });
+          },
+          onInstanceEvent: (event: SentinelInstanceEvent) => {
+            if (event.type === 'launch-started') {
+              setMessages(previous => [...previous, createSystemMessage(
+                `[Sentinel · lanzamiento ${event.index}/${event.total}] Iniciando ${event.agentId} como invitada (guest/clean)…`,
+                'info',
+              )]);
+            } else if (event.type === 'instance-ready') {
+              setMessages(previous => [...previous, createSystemMessage(
+                `[Sentinel · lista ${event.index}/${event.total}] ${event.agentId} confirmó Chrome, SuperAssistant y MCP preparados.`,
+                'info',
+              )]);
+            } else if (event.type === 'request-started') {
+              setMessages(previous => [...previous, createSystemMessage(
+                `[Sentinel → ${event.agentId}] Tarea enviada a su conversación Web Relay con SuperAssistant/MCP:\n${event.prompt}`,
+                'info',
+              )]);
+            } else if (event.type === 'response') {
+              setMessages(previous => [...previous, createAssistantMessage({
+                content: `╭─ Respuesta original · ${event.agentId} ─╮\n${event.response}\n╰─ Fin de respuesta · ${event.agentId} ─╯`,
+              })]);
+            } else if (event.type === 'request-error') {
+              setMessages(previous => [...previous, createSystemMessage(
+                `[Sentinel → ${event.agentId}] No se recibió una respuesta utilizable: ${event.error}`,
+                'warning',
+              )]);
+            } else if (event.type === 'stop-started') {
+              setMessages(previous => [...previous, createSystemMessage(
+                `[Sentinel] Deteniendo ${event.agentId}…`,
+                'info',
+              )]);
+            } else {
+              setMessages(previous => [...previous, createSystemMessage(
+                `[Sentinel] ${event.agentId} quedó detenida.`,
+                'info',
+              )]);
+            }
+          },
+        }));
+      }
+      sentinelAssistantRef.current = assistant;
+      const response = await assistant.chat(message);
+      setMessages(previous => [...previous, createAssistantMessage({ content: response.text })]);
+    } catch (error) {
+      const detail = errorMessage(error);
+      setMessages(previous => [
+        ...previous,
+        createSystemMessage(`Sentinel no pudo responder: ${detail}`, 'warning'),
+      ]);
+    } finally {
+      sentinelRequestInFlightRef.current = false;
+      setIsExternalLoading(false);
+    }
+  }, [setInputValue, setMessages, setIsExternalLoading]);
+
+  const onWebAgentSubmit = useCallback(async (input: string, helpers: PromptInputHelpers) => {
+    const message = input.trim();
+    if (!message || webAgentRequestInFlightRef.current) return;
+
+    webAgentRequestInFlightRef.current = true;
+    setInputValue('');
+    helpers.setCursorOffset(0);
+    helpers.clearBuffer();
+    helpers.resetHistory();
+    setMessages(previous => [
+      ...previous,
+      createUserMessage({ content: message }),
+      createSystemMessage('[Modo agente] OpenMCP coordina con el modelo API configurado y envía tareas a workers Web; también puedes elegir envío directo.', 'info'),
+    ]);
+    setIsExternalLoading(true);
+
+    const config = getCurrentProjectConfig();
+    const platformId = config.selectedWebPlatform ?? 'chatgpt';
+    const configuredAgentIds = new Set(config.webRelayAgentIds ?? []);
+    const agents = Object.values(orchestrationAppState.getState().agents)
+      .filter(agent => configuredAgentIds.has(agent.agentId));
+    const taskId = startWebRelayActivity(message, platformId, agents);
+
+    try {
+      const result = await runCoordinatedWebTask({
+        prompt: message,
+        platformId,
+        agents,
+        coordinatorAgentId: config.webRelayCoordinatorAgentId,
+        orchestratorBrain: config.webRelayOrchestratorBrain ?? 'api',
+        sendPrompt: (prompt, targetPlatformId, agentId) =>
+          sendWebPrompt(prompt, targetPlatformId, agentId),
+        onEvent: event => {
+          applyWebRelayActivityEvent(taskId, event);
+          if (event.type === 'task-started') {
+            setMessages(previous => [...previous, createSystemMessage(
+              `[Proceso multiagente · ${event.taskId}] Iniciado. Usa workspace_task_trace con este taskId para consultar la traza guardada (requiere Memoria temporal activada).`,
+              'info',
+            )]);
+          } else if (event.type === 'worker-started') {
+            setMessages(previous => [...previous, createSystemMessage(
+              `[Agente Web · ${event.agentId}] Trabajando en su asignación:\n${event.prompt}`,
+              'info',
+            )]);
+          } else if (event.type === 'worker-response') {
+            setMessages(previous => [...previous, createAssistantMessage({
+              content: `╭─ Respuesta original · ${event.agentId} ─╮\n${event.response}\n╰─ Fin de respuesta · ${event.agentId} ─╯`,
+            })]);
+          } else if (event.type === 'worker-error') {
+            setMessages(previous => [...previous, createSystemMessage(
+              `[Agente Web · ${event.agentId}] La consulta falló: ${event.error}`,
+              'warning',
+            )]);
+          } else if (event.type === 'review-started') {
+            setMessages(previous => [...previous, createSystemMessage(
+              `[Coordinador · ${event.agentId}] Revisando las respuestas y preparando el siguiente paso…`,
+              'info',
+            )]);
+          } else if (event.type === 'review-response') {
+            setMessages(previous => [...previous, createAssistantMessage({
+              content: `╭─ Seguimiento del coordinador · ${event.agentId} ─╮\n${event.response}\n╰─ Fin del seguimiento ─╯`,
+            })]);
+          } else if (event.type === 'review-error') {
+            setMessages(previous => [...previous, createSystemMessage(
+              `[Coordinador · ${event.agentId}] No pudo completar la revisión: ${event.error}`,
+              'warning',
+            )]);
+          } else if (event.type === 'direct-response') {
+            setMessages(previous => [...previous, createAssistantMessage({
+              content: `╭─ Respuesta original · ${event.agentId} ─╮\n${event.response}\n╰─ Fin de respuesta · ${event.agentId} ─╯`,
+            })]);
+          }
+        },
+      });
+      finishWebRelayActivity(taskId, {
+        partial: result.workerResponses.some(response => response.error !== undefined) ||
+          result.reviewError !== undefined,
+      });
+    } catch (error) {
+      const detail = errorMessage(error);
+      finishWebRelayActivity(taskId, { error: detail });
+      setMessages(previous => [...previous, createSystemMessage(
+        `El modo agente no pudo completar la petición: ${detail}`,
+        'warning',
+      )]);
+    } finally {
+      webAgentRequestInFlightRef.current = false;
+      setIsExternalLoading(false);
+    }
+  }, [setInputValue, setMessages, setIsExternalLoading]);
+
   // Callback for when user submits input while viewing a teammate's transcript
   const onAgentSubmit = useCallback(async (input: string, task: InProcessTeammateTaskState | LocalAgentTaskState, helpers: PromptInputHelpers) => {
     if (isLocalAgentTask(task)) {
@@ -4657,6 +5001,8 @@ export function REPL({
         {isBuddyEnabled() && companionNarrow && isFullscreenEnvEnabled() && companionVisible ? <CompanionSprite /> : null}
         <Box flexDirection="column" flexGrow={1}>
           {permissionStickyFooter}
+          {/* Collaboration surface: refleja agentes web en tiempo real */}
+          <CollaborationSurfaceMount />
           {/* Immediate local-jsx commands (/btw, /sandbox, /assistant,
                   /issue) render here, NOT inside scrollable. They stay mounted
                   while the main conversation streams behind them, so ScrollBox
@@ -4966,7 +5312,7 @@ export function REPL({
             {"external" === 'ant' && skillImprovementSurvey.suggestion && <SkillImprovementSurvey isOpen={skillImprovementSurvey.isOpen} skillName={skillImprovementSurvey.suggestion.skillName} updates={skillImprovementSurvey.suggestion.updates} handleSelect={skillImprovementSurvey.handleSelect} inputValue={inputValue} setInputValue={setInputValue} />}
             {showIssueFlagBanner && <IssueFlagBanner />}
             { }
-            <PromptInput debug={debug} ideSelection={ideSelection} hasSuppressedDialogs={!!hasSuppressedDialogs} isLocalJSXCommandActive={isShowingLocalJSXCommand} getToolUseContext={getToolUseContext} toolPermissionContext={toolPermissionContext} setToolPermissionContext={setToolPermissionContext} apiKeyStatus={apiKeyStatus} commands={renderCommands} agents={agentDefinitions.activeAgents} isLoading={isLoading} onExit={handleExit} verbose={verbose} messages={messages} onAutoUpdaterResult={setAutoUpdaterResult} autoUpdaterResult={autoUpdaterResult} input={inputValue} onInputChange={setInputValue} mode={inputMode} onModeChange={setInputMode} stashedPrompt={stashedPrompt} setStashedPrompt={setStashedPrompt} submitCount={submitCount} onShowMessageSelector={handleShowMessageSelector} onMessageActionsEnter={
+            <PromptInput debug={debug} ideSelection={ideSelection} hasSuppressedDialogs={!!hasSuppressedDialogs} isLocalJSXCommandActive={isShowingLocalJSXCommand} getToolUseContext={getToolUseContext} toolPermissionContext={toolPermissionContext} setToolPermissionContext={setToolPermissionContext} apiKeyStatus={apiKeyStatus} commands={renderCommands} agents={agentDefinitions.activeAgents} isLoading={isLoading} onExit={handleExit} verbose={verbose} messages={messages} onAutoUpdaterResult={setAutoUpdaterResult} autoUpdaterResult={autoUpdaterResult} input={inputValue} onInputChange={setInputValue} mode={inputMode} onModeChange={setInputMode} stashedPrompt={stashedPrompt} setStashedPrompt={setStashedPrompt} submitCount={submitCount} onShowMessageSelector={handleShowMessageSelector} onSentinelSubmit={onSentinelSubmit} onWebAgentSubmit={onWebAgentSubmit} onMessageActionsEnter={
               // Works during isLoading — edit cancels first; uuid selection survives appends.
               feature('MESSAGE_ACTIONS') && isFullscreenEnvEnabled() && !disableMessageActions ? enterMessageActions : undefined} mcpClients={mcpClients} pastedContents={pastedContents} setPastedContents={setPastedContents} vimMode={vimMode} setVimMode={setVimMode} showBashesDialog={showBashesDialog} setShowBashesDialog={setShowBashesDialog} onSubmit={onSubmit} onAgentSubmit={onAgentSubmit} isSearchingHistory={isSearchingHistory} setIsSearchingHistory={setIsSearchingHistory} helpOpen={isHelpOpen} setHelpOpen={setIsHelpOpen} insertTextRef={feature('VOICE_MODE') ? insertTextRef : undefined} voiceInterimRange={voice.interimRange} />
             <SessionBackgroundHint onBackgroundSession={handleBackgroundSession} isLoading={isLoading} />

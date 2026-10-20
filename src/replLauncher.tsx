@@ -16,6 +16,18 @@ export async function launchRepl(root: Root, appProps: AppWrapperProps, replProp
   const {
     REPL
   } = await import('./screens/REPL.js');
+  try {
+    const {
+      orchestrationAppState
+    } = await import('./services/webRelay/orchestration/AppState.js');
+    const sentinel = await import('./services/webRelay/orchestration/Sentinel.js');
+    await orchestrationAppState.init();
+    sentinel.start();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`[Web Relay startup] Orchestration bootstrap failed: ${message}\n`);
+  }
+
   await renderAndRun(root, <App {...appProps}>
       <REPL {...replProps} />
     </App>);

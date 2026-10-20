@@ -141,6 +141,39 @@ export type ProjectConfig = {
   mcpExecutionMode?: McpExecutionMode
   /** Selected web platform when mcpExecutionMode is 'web' */
   selectedWebPlatform?: string
+  /** Gemini model used by Sentinel chat in the composer. */
+  sentinelModel?: string
+  /** Agent pool prepared before Web Relay accepts chat input. */
+  webRelayAgentIds?: string[]
+  /** Master Sessions explicitly prepared with SuperAssistant as Workspace workers. */
+  webRelayMasterSessionIds?: string[]
+  /** Snapshot used when the Workspace temporarily hides its previous Master workers. */
+  webRelayPreviousMasterSessionIds?: string[]
+  /** Restore registered Master workers after explicitly starting a fresh Workspace session. */
+  webRelayRestorePreviousMasterWorkers?: boolean
+  /** Restore the last platform tab in Master Sessions when reopening them from Workspace. */
+  webRelayResumePreviousMasterSession?: boolean
+  /** Persist complete Workspace-observed Clean conversation events locally for cross-agent context. */
+  webRelaySaveCleanContext?: boolean
+  /** Separately opt in to capturing visible user/assistant turns from supported web pages. */
+  webRelayCaptureWebConversations?: boolean
+  /** Workspace-wide consent gate for per-instance automatic Sentinel conversation review. */
+  webRelaySentinelAutoReview?: boolean
+  /** Web Relay agents explicitly authorized for automatic Sentinel review of visible turns. */
+  webRelaySentinelReviewAgentIds?: string[]
+  /** Preferred agent instance that coordinates Web Relay requests. */
+  webRelayCoordinatorAgentId?: string
+  /** Whether Workspace tasks are planned and reviewed by an orchestrator. */
+  webRelayCoordinationEnabled?: boolean
+  /** Orchestrator inference provider; independent of MCP tool execution mode. */
+  webRelayOrchestratorBrain?: 'api' | 'web'
+  /** Session mode for each configured Web Relay agent; contains no credentials. */
+  webRelayAgentProfiles?: Array<{
+    agentId: string
+    sessionMode: 'authenticated' | 'clean' | 'chrome-profile'
+    masterSessionSourceId?: string
+    chromeProfileDirectory?: string
+  }>
 }
 
 const DEFAULT_PROJECT_CONFIG: ProjectConfig = {
@@ -154,6 +187,10 @@ const DEFAULT_PROJECT_CONFIG: ProjectConfig = {
   hasClaudeMdExternalIncludesApproved: false,
   hasClaudeMdExternalIncludesWarningShown: false,
   mcpExecutionMode: DEFAULT_MCP_EXECUTION_MODE,
+  webRelaySaveCleanContext: false,
+  webRelayCaptureWebConversations: false,
+  webRelaySentinelAutoReview: false,
+  webRelaySentinelReviewAgentIds: [],
 }
 
 export type InstallMethod = 'local' | 'native' | 'global' | 'unknown'
@@ -1697,7 +1734,27 @@ export function getCurrentProjectConfig(): ProjectConfig {
   return projectConfig
 }
 
-export function saveCurrentProjectConfig(
+const mcpExecutionModeListeners = new Set<(mode: McpExecutionMode) => void>()
+
+export function subscribeToMcpExecutionModeChange(listener: (mode: McpExecutionMode) => void): () => void {
+  mcpExecutionModeListeners.add(listener)
+  return () => { mcpExecutionModeListeners.delete(listener) }
+}
+
+export function saveCurrentProjectConfig(updater: (currentConfig: ProjectConfig) => ProjectConfig): void {
+  const previousMode = getCurrentProjectConfig().mcpExecutionMode ?? DEFAULT_MCP_EXECUTION_MODE
+  saveCurrentProjectConfigInternal(updater)
+  const mode = getCurrentProjectConfig().mcpExecutionMode ?? DEFAULT_MCP_EXECUTION_MODE
+  if (mode !== previousMode) {
+    for (const listener of mcpExecutionModeListeners) {
+      try { listener(mode) } catch (error) {
+        logForDebugging(`MCP mode listener failed: ${String(error)}`, { level: 'error' })
+      }
+    }
+  }
+}
+
+function saveCurrentProjectConfigInternal(
   updater: (currentConfig: ProjectConfig) => ProjectConfig,
 ): void {
   if (process.env.NODE_ENV === 'test') {

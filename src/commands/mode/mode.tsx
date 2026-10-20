@@ -8,12 +8,19 @@ import type { LocalJSXCommandOnDone, LocalJSXCommandContext } from '../../types/
 
 // Web platform model mapping
 const WEB_PLATFORM_MODELS: Record<string, string> = {
-  chatgpt: 'GPT-4o',
+  chatgpt: 'GPT-5.6 Luna (current ChatGPT web default)',
   gemini: 'Gemini 2.5 Pro',
-  grok: 'Grok 3',
-  perplexity: 'Sonar Pro',
-  deepseek: 'DeepSeek V3',
+  grok: 'Choose an available model in Grok',
+  perplexity: 'Choose an available model in Perplexity',
+  deepseek: 'Choose an available model in DeepSeek',
+  kimi: 'Choose an available model in Kimi',
+  qwen: 'Choose an available model in Qwen',
+  chathub: 'GLM-5.3 (ChatHub)',
+  chatx: 'Choose an available model in ChatX',
   claude: 'Claude Sonnet',
+  arena: 'Direct Chat — choose a model in Arena',
+  zai: 'Choose an available model in Z.ai',
+  aistudio: 'Choose an available model in AI Studio',
 }
 
 type Step = 'select-mode' | 'select-platform' | 'done'
